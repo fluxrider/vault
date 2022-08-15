@@ -11,7 +11,7 @@
 int main(int argc, char * argv[]) {
   if(sodium_init()) { fprintf(stderr, "ERROR: sodium_init()\n"); return EXIT_FAILURE; }
 
-  // key derivation
+  // key derivation TODO use salt read from header of decrypt
   const char * passphrase = "hello my friend";
   unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES];
   unsigned char salt[crypto_pwhash_SALTBYTES]; randombytes_buf(salt, crypto_pwhash_SALTBYTES);
