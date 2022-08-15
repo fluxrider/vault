@@ -6,21 +6,36 @@ static void on_activate(GtkApplication * app) {
 //  g_signal_connect_swapped(button, "clicked", G_CALLBACK(gtk_window_close), window);
 //  gtk_window_set_child(GTK_WINDOW (window), button);
 
+  GtkWidget * entry_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_append(GTK_BOX(entry_row), gtk_label_new("Entry: "));
+  gtk_box_append(GTK_BOX(entry_row), gtk_entry_new());
+
+  GtkWidget * url_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_append(GTK_BOX(url_row), gtk_label_new("URL: "));
+  gtk_box_append(GTK_BOX(url_row), gtk_entry_new());
+
   GtkWidget * username = gtk_password_entry_new(); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(username), true);
   GtkWidget * username_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-  gtk_box_append(GTK_BOX(username_row), username);  
+  gtk_box_append(GTK_BOX(username_row), gtk_label_new("Username: "));
+  gtk_box_append(GTK_BOX(username_row), username);
+
+  GtkWidget * password = gtk_password_entry_new(); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(password), true);
+  GtkWidget * password_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_append(GTK_BOX(password_row), gtk_label_new("Password: "));
+  gtk_box_append(GTK_BOX(password_row), password);
 
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+  gtk_box_append(GTK_BOX(vbox), entry_row);
+  gtk_box_append(GTK_BOX(vbox), url_row);
   gtk_box_append(GTK_BOX(vbox), username_row);
-  //gtk_box_append(vbox, password_row);
-  //gtk_box_append(vbox, url_row);
-  //gtk_box_append(vbox, notes_row);
+  gtk_box_append(GTK_BOX(vbox), password_row);
+  //gtk_box_append(GTK_BOX(vbox), notes_row);
 
   GtkWidget * window = gtk_application_window_new(app);
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
   gtk_window_set_child(GTK_WINDOW (window), vbox);
-  gtk_window_present(GTK_WINDOW (window));  
+  gtk_window_present(GTK_WINDOW (window));
 }
 
 int main (int argc, char * argv[]) {
