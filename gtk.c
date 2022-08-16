@@ -31,14 +31,18 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(notes_row), notes_label);
   gtk_box_append(GTK_BOX(notes_row), notes_frame);
 
+  GtkWidget * save = gtk_button_new_from_icon_name("document-save");
+
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
   gtk_box_append(GTK_BOX(vbox), entry_row);
   gtk_box_append(GTK_BOX(vbox), url_row);
   gtk_box_append(GTK_BOX(vbox), username_row);
   gtk_box_append(GTK_BOX(vbox), password_row);
   gtk_box_append(GTK_BOX(vbox), notes_row);
+  gtk_box_append(GTK_BOX(vbox), save);
 
   GtkWidget * window = gtk_application_window_new(app);
+  gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password"); // TODO: this looks low rez when alt-tabbing
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
   gtk_window_set_child(GTK_WINDOW (window), vbox);
