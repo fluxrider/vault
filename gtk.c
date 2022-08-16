@@ -10,6 +10,7 @@ static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets 
   GtkTextBuffer * notes_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)); GtkTextIter notes_begin, notes_end; gtk_text_buffer_get_bounds(notes_buffer, &notes_begin, &notes_end);
   const char * notes = gtk_text_buffer_get_text(notes_buffer, &notes_begin, &notes_end, false);
   g_print("%s\n%s\n%s\n%s\n%s\n", entry, url, username, password, notes);
+  g_free((gpointer)notes);
 }
 
 static void on_activate(GtkApplication * app) {
@@ -42,9 +43,9 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(notes_row), notes_frame);
 
   GtkWidget * save = gtk_button_new_from_icon_name("document-save");
-  GtkWidget ** widgets = malloc(5 * sizeof(GtkWidget *)); widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes;
+  GtkWidget ** widgets = malloc(5 * sizeof(GtkWidget *)); widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes; // note: this will leak on exit, but whatever
   g_signal_connect(save, "clicked", G_CALLBACK(on_save), widgets);
-  
+
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
   gtk_box_append(GTK_BOX(vbox), entry_row);
   gtk_box_append(GTK_BOX(vbox), url_row);
