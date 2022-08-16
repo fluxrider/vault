@@ -1,11 +1,8 @@
+// Copyright 2022 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
 // gcc --pedantic -Wall -Werror-implicit-function-declaration gtk.c $(pkg-config --cflags --libs gtk4)
 #include <gtk/gtk.h>
 
 static void on_activate(GtkApplication * app) {
-//  GtkWidget * button = gtk_button_new_with_label("Hello, World!");
-//  g_signal_connect_swapped(button, "clicked", G_CALLBACK(gtk_window_close), window);
-//  gtk_window_set_child(GTK_WINDOW (window), button);
-
   GtkWidget * entry = gtk_entry_new(); gtk_widget_set_hexpand(entry, true);
   GtkWidget * entry_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_append(GTK_BOX(entry_row), gtk_label_new("Entry: "));

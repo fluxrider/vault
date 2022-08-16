@@ -1,3 +1,4 @@
+// Copyright 2022 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
 // gcc --pedantic -Wall -Werror-implicit-function-declaration vault.c $(pkg-config --cflags --libs libsodium)
 #include <stdio.h>
 #include <string.h>
