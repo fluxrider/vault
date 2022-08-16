@@ -24,12 +24,19 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(password_row), gtk_label_new("Password: "));
   gtk_box_append(GTK_BOX(password_row), password);
 
+  GtkWidget * notes = gtk_text_view_new();
+  GtkWidget * notes_scroll = gtk_scrolled_window_new();
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(notes_scroll), notes);
+  GtkWidget * notes_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_append(GTK_BOX(notes_row), gtk_label_new("Notes: "));
+  gtk_box_append(GTK_BOX(notes_row), notes_scroll);
+
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
   gtk_box_append(GTK_BOX(vbox), entry_row);
   gtk_box_append(GTK_BOX(vbox), url_row);
   gtk_box_append(GTK_BOX(vbox), username_row);
   gtk_box_append(GTK_BOX(vbox), password_row);
-  //gtk_box_append(GTK_BOX(vbox), notes_row);
+  gtk_box_append(GTK_BOX(vbox), notes_row);
 
   GtkWidget * window = gtk_application_window_new(app);
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
