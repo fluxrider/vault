@@ -2,6 +2,16 @@
 // gcc --pedantic -Wall -Werror-implicit-function-declaration gtk.c $(pkg-config --cflags --libs gtk4)
 #include <gtk/gtk.h>
 
+static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4];
+  const char * entry = gtk_editable_get_text(GTK_EDITABLE(_entry));
+  const char * url = gtk_editable_get_text(GTK_EDITABLE(_url));
+  const char * username = gtk_editable_get_text(GTK_EDITABLE(_username));
+  const char * password = gtk_editable_get_text(GTK_EDITABLE(_password));
+  GtkTextBuffer * notes_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)); GtkTextIter notes_begin, notes_end; gtk_text_buffer_get_bounds(notes_buffer, &notes_begin, &notes_end);
+  const char * notes = gtk_text_buffer_get_text(notes_buffer, &notes_begin, &notes_end, false);
+  g_print("%s\n%s\n%s\n%s\n%s\n", entry, url, username, password, notes);
+}
+
 static void on_activate(GtkApplication * app) {
   GtkWidget * entry = gtk_entry_new(); gtk_widget_set_hexpand(entry, true);
   GtkWidget * entry_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -32,7 +42,9 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(notes_row), notes_frame);
 
   GtkWidget * save = gtk_button_new_from_icon_name("document-save");
-
+  GtkWidget ** widgets = malloc(5 * sizeof(GtkWidget *)); widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes;
+  g_signal_connect(save, "clicked", G_CALLBACK(on_save), widgets);
+  
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
   gtk_box_append(GTK_BOX(vbox), entry_row);
   gtk_box_append(GTK_BOX(vbox), url_row);
