@@ -5,28 +5,28 @@
 static void on_activate(GtkApplication * app) {
   GtkWidget * entry = gtk_entry_new(); gtk_widget_set_hexpand(entry, true);
   GtkWidget * entry_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-  gtk_box_append(GTK_BOX(entry_row), gtk_label_new("Entry: "));
+  gtk_box_append(GTK_BOX(entry_row), gtk_image_new_from_icon_name("document-open-symbolic"));
   gtk_box_append(GTK_BOX(entry_row), entry);
 
   GtkWidget * url = gtk_entry_new(); gtk_widget_set_hexpand(url, true);
   GtkWidget * url_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-  gtk_box_append(GTK_BOX(url_row), gtk_label_new("URL: "));
+  gtk_box_append(GTK_BOX(url_row), gtk_image_new_from_icon_name("go-home-symbolic"));
   gtk_box_append(GTK_BOX(url_row), url);
 
   GtkWidget * username = gtk_password_entry_new(); gtk_widget_set_hexpand(username, true); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(username), true);
   GtkWidget * username_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-  gtk_box_append(GTK_BOX(username_row), gtk_label_new("Username: "));
+  gtk_box_append(GTK_BOX(username_row), gtk_image_new_from_icon_name("avatar-default-symbolic"));
   gtk_box_append(GTK_BOX(username_row), username);
 
   GtkWidget * password = gtk_password_entry_new(); gtk_widget_set_hexpand(password, true); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(password), true);
   GtkWidget * password_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-  gtk_box_append(GTK_BOX(password_row), gtk_label_new("Password: "));
+  gtk_box_append(GTK_BOX(password_row), gtk_image_new_from_icon_name("dialog-password-symbolic"));
   gtk_box_append(GTK_BOX(password_row), password);
 
   GtkWidget * notes = gtk_text_view_new(); gtk_widget_set_hexpand(notes, true); gtk_widget_set_vexpand(notes, true);
   GtkWidget * notes_scroll = gtk_scrolled_window_new(); gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(notes_scroll), notes);
   GtkWidget * notes_frame = gtk_frame_new(NULL); gtk_frame_set_child(GTK_FRAME(notes_frame), notes_scroll);  
-  GtkWidget * notes_label = gtk_label_new("Notes: "); gtk_widget_set_valign(notes_label, GTK_ALIGN_START);
+  GtkWidget * notes_label = gtk_image_new_from_icon_name("accessories-text-editor"); gtk_widget_set_valign(notes_label, GTK_ALIGN_START);
   GtkWidget * notes_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);  
   gtk_box_append(GTK_BOX(notes_row), notes_label);
   gtk_box_append(GTK_BOX(notes_row), notes_frame);
