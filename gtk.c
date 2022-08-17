@@ -3,15 +3,31 @@
 #include <gtk/gtk.h>
 #include <sodium.h>
 
-static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4];
-  const char * entry = gtk_editable_get_text(GTK_EDITABLE(_entry));
-  const char * url = gtk_editable_get_text(GTK_EDITABLE(_url));
-  const char * username = gtk_editable_get_text(GTK_EDITABLE(_username));
-  const char * password = gtk_editable_get_text(GTK_EDITABLE(_password));
-  GtkTextBuffer * notes_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)); GtkTextIter notes_begin, notes_end; gtk_text_buffer_get_bounds(notes_buffer, &notes_begin, &notes_end);
-  const char * notes = gtk_text_buffer_get_text(notes_buffer, &notes_begin, &notes_end, false);
-  g_print("%s\n%s\n%s\n%s\n%s\n", entry, url, username, password, notes);
-  g_free((gpointer)notes);
+#include <libintl.h> // gettext()
+#define _(String) gettext(String)
+
+static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6];
+  if(response_id == GTK_RESPONSE_ACCEPT) {
+    const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
+    const char * entry = gtk_editable_get_text(GTK_EDITABLE(_entry));
+    const char * url = gtk_editable_get_text(GTK_EDITABLE(_url));
+    const char * username = gtk_editable_get_text(GTK_EDITABLE(_username));
+    const char * password = gtk_editable_get_text(GTK_EDITABLE(_password));
+    GtkTextBuffer * notes_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)); GtkTextIter notes_begin, notes_end; gtk_text_buffer_get_bounds(notes_buffer, &notes_begin, &notes_end);
+    const char * notes = gtk_text_buffer_get_text(notes_buffer, &notes_begin, &notes_end, false);
+    g_print("%s\n%s\n%s\n%s\n%s\n", entry, url, username, password, notes);
+    g_print("master: %s\n", master_passphrase);
+    g_free((gpointer)notes);
+  }
+  gtk_window_destroy(GTK_WINDOW(dialog));
+}
+
+static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * window = _widgets[5];
+  GtkWidget * master_passphrase = gtk_password_entry_new(); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(master_passphrase), true); _widgets[6] = master_passphrase;
+  GtkWidget * dialog = gtk_dialog_new_with_buttons("Master Passphrase", GTK_WINDOW(window), GTK_DIALOG_MODAL, _("_OK"), GTK_RESPONSE_ACCEPT, _("_Cancel"), GTK_RESPONSE_REJECT, NULL);
+  GtkWidget * content = gtk_dialog_get_content_area(GTK_DIALOG(dialog)); gtk_box_append(GTK_BOX(content), master_passphrase);
+  g_signal_connect(dialog, "response", G_CALLBACK(on_save_with_passphrase), _data);
+  gtk_window_present(GTK_WINDOW(dialog));
 }
 
 static void on_activate(GtkApplication * app) {
@@ -43,8 +59,9 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(notes_row), notes_label);
   gtk_box_append(GTK_BOX(notes_row), notes_frame);
 
+  GtkWidget * window = gtk_application_window_new(app);
   GtkWidget * save = gtk_button_new_from_icon_name("document-save");
-  static GtkWidget * widgets[5]; widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes;
+  static GtkWidget * widgets[7]; widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes; widgets[5] = window; widgets[6] = NULL;
   g_signal_connect(save, "clicked", G_CALLBACK(on_save), widgets);
 
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
@@ -55,7 +72,6 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(vbox), notes_row);
   gtk_box_append(GTK_BOX(vbox), save);
 
-  GtkWidget * window = gtk_application_window_new(app);
   gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password-symbolic");
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
