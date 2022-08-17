@@ -43,7 +43,7 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(notes_row), notes_frame);
 
   GtkWidget * save = gtk_button_new_from_icon_name("document-save");
-  GtkWidget ** widgets = malloc(5 * sizeof(GtkWidget *)); widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes; // note: this will leak on exit, but whatever
+  static GtkWidget * widgets[5]; widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes;
   g_signal_connect(save, "clicked", G_CALLBACK(on_save), widgets);
 
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
