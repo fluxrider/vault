@@ -1,6 +1,7 @@
 // Copyright 2022 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
-// gcc --pedantic -Wall -Werror-implicit-function-declaration gtk.c $(pkg-config --cflags --libs gtk4)
+// gcc --pedantic -Wall -Werror-implicit-function-declaration gtk.c $(pkg-config --cflags --libs gtk4 libsodium)
 #include <gtk/gtk.h>
+#include <sodium.h>
 
 static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4];
   const char * entry = gtk_editable_get_text(GTK_EDITABLE(_entry));
@@ -55,7 +56,7 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(vbox), save);
 
   GtkWidget * window = gtk_application_window_new(app);
-  gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password"); // TODO: this looks low rez when alt-tabbing
+  gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password-symbolic");
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
   gtk_window_set_child(GTK_WINDOW (window), vbox);
@@ -63,6 +64,7 @@ static void on_activate(GtkApplication * app) {
 }
 
 int main (int argc, char * argv[]) {
+  if(sodium_init()) { fprintf(stderr, "ERROR: sodium_init()\n"); return EXIT_FAILURE; }
   GtkApplication * app = gtk_application_new("com.github.fluxrider.vault", G_APPLICATION_FLAGS_NONE);
   g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
   int status = g_application_run(G_APPLICATION(app), argc, argv); g_object_unref(app); return status;
