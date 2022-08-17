@@ -16,10 +16,10 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   const char * error = NULL;
   // derive key
   const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
-  unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) { error = "mlock()"; goto end; }
+  unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
   unsigned char salt[crypto_pwhash_SALTBYTES]; randombytes_buf(salt, crypto_pwhash_SALTBYTES);
   uint64_t algo = crypto_pwhash_ALG_ARGON2ID13, algo_p1 = crypto_pwhash_OPSLIMIT_MODERATE, algo_p2 = crypto_pwhash_MEMLIMIT_MODERATE;
-  if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, master_passphrase, strlen(master_passphrase), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) { error = "crypto_pwhash()"; goto end; }
+  if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, master_passphrase, strlen(master_passphrase), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) error = "crypto_pwhash()"; else {
   // read entry
   const char * entry = gtk_editable_get_text(GTK_EDITABLE(_entry)); size_t entry_len = strlen(entry);
   const char * url = gtk_editable_get_text(GTK_EDITABLE(_url)); size_t url_len = strlen(url);
@@ -29,7 +29,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   const char * notes = gtk_text_buffer_get_text(notes_buffer, &notes_begin, &notes_end, false); size_t notes_len = strlen(notes);
   // encrypt
   unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; randombytes_buf(nonce, crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-  size_t src_n = entry_len+1+url_len+1+username_len+1+password_len+1+notes_len; char src[src_n]; if(mlock(src, src_n) == -1) { error = "mlock()"; goto end; }
+  size_t src_n = entry_len+1+url_len+1+username_len+1+password_len+1+notes_len; char src[src_n]; if(mlock(src, src_n) == -1) error = "mlock()"; else {
   char * ptr = src;
   memcpy(ptr, entry, entry_len); ptr += entry_len; *ptr++ = '\n';
   memcpy(ptr, url, url_len); ptr += url_len; *ptr++ = '\n';
@@ -38,7 +38,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   memcpy(ptr, notes, notes_len); g_free((gpointer)notes); notes = NULL;
   unsigned char dst[src_n+crypto_aead_xchacha20poly1305_ietf_ABYTES];
   unsigned long long _dst_n; crypto_aead_xchacha20poly1305_ietf_encrypt(dst, &_dst_n, (unsigned char *)src, src_n, NULL, 0, NULL, nonce, key); uint64_t encrypted_n = _dst_n;
-  memset(src, 0, src_n); memset(key, 0, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); if(munlock(src, src_n) == -1) { error = "munlock()"; goto end; }
+  memset(src, 0, src_n); memset(key, 0, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); if(munlock(src, src_n) == -1) error = "munlock()"; else {
   // write encrypted file (kdf_algo, kdf_algo_p1, kdf_algo_p2, kdf_salt, encryption_nonce, encrypted_len, encrypted_message)
   struct iovec iov[7];
   iov[0].iov_base = &algo; iov[0].iov_len = sizeof(uint64_t);
@@ -50,14 +50,14 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   iov[6].iov_base = dst; iov[6].iov_len = encrypted_n;
   // TODO sanitize entry for filename
   // filename is derived from entry name and timestamp
-  time_t now; if(time(&now) == -1) { error = "time()"; goto end; } struct tm * t = localtime(&now); if(!t) { error = "localtime()"; goto end; }
-  char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d", entry, t->tm_year, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) { error = "snprintf()"; goto end; }
-  int fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR ); if(fd == -1) { error = "open()"; goto end; }
-  if(writev(fd, iov, 7) == -1) { error = "writev()"; goto end; };
-  if(close(fd) == -1) { error = "close()"; goto end; }
+  time_t now; if(time(&now) == -1) error = "time()"; else { struct tm * t = localtime(&now); if(!t) error = "localtime()"; else {
+  char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d", entry, t->tm_year, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
+  int fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR ); if(fd == -1) error = "open()"; else {
+  if(writev(fd, iov, 7) == -1) error = "writev()"; else {
+  if(close(fd) == -1) error = "close()"; else {
 
+  }}}}}}}}if(notes) g_free((gpointer)notes);}}
   // if something bad happened, show a message dialog on top, and don't destroy the master password dialog
-  end:
   if(!error) gtk_window_destroy(GTK_WINDOW(dialog));
   else {
     GtkWidget * message = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "ERROR: %s", error);
@@ -65,7 +65,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
     gtk_window_present(GTK_WINDOW(message));
   }
   memset(key, 0, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
-  if(notes) g_free((gpointer)notes);
+  
 }
 
 static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * window = _widgets[5];
