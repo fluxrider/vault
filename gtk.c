@@ -117,10 +117,16 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(vbox), notes_row);
   gtk_box_append(GTK_BOX(vbox), save);
 
+  GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_widget_new(GTK_FILE_CHOOSER_ACTION_OPEN); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
+  GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
+  GtkWidget * hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_append(GTK_BOX(hbox), vbox);
+  gtk_box_append(GTK_BOX(hbox), file_chooser);
+
   gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password-symbolic");
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
-  gtk_window_set_child(GTK_WINDOW (window), vbox);
+  gtk_window_set_child(GTK_WINDOW (window), hbox);
   gtk_window_present(GTK_WINDOW (window));
 }
 
