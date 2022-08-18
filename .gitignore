@@ -1,2 +1,2 @@
-a.out
-entry.encrypted
+*.out
+*.enc
