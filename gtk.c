@@ -11,6 +11,14 @@
 #include <sys/mman.h> // mlock()
 #include <sys/uio.h> // writev()
 
+static void on_file(GtkDialog * dialog, gint response_id, gpointer _data) {
+  if(response_id == GTK_RESPONSE_ACCEPT) {
+    GFile * file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
+    // TODO decrypt
+  }
+  gtk_window_destroy(GTK_WINDOW(dialog));
+}
+
 static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6];
   if(response_id != GTK_RESPONSE_ACCEPT) { gtk_window_destroy(GTK_WINDOW(dialog)); return; }
   const char * error = NULL;
@@ -117,17 +125,16 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(vbox), notes_row);
   gtk_box_append(GTK_BOX(vbox), save);
 
-  GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_widget_new(GTK_FILE_CHOOSER_ACTION_OPEN); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
-  GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
-  GtkWidget * hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
-  gtk_box_append(GTK_BOX(hbox), vbox);
-  gtk_box_append(GTK_BOX(hbox), file_chooser);
-
   gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password-symbolic");
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
-  gtk_window_set_child(GTK_WINDOW (window), hbox);
+  gtk_window_set_child(GTK_WINDOW (window), vbox);
   gtk_window_present(GTK_WINDOW (window));
+
+  GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_dialog_new("Decrypt", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, _("_Cancel"), GTK_RESPONSE_CANCEL, _("_Open"), GTK_RESPONSE_ACCEPT, NULL); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
+  GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
+  g_signal_connect(file_chooser, "response", G_CALLBACK(on_file), NULL);
+  gtk_widget_show(file_chooser);
 }
 
 int main (int argc, char * argv[]) {
