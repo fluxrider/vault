@@ -1,5 +1,5 @@
 // Copyright 2022 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
-// gcc --pedantic -Wall -Werror-implicit-function-declaration gtk.c $(pkg-config --cflags --libs gtk4 libsodium)
+// gcc --pedantic -Wall -Werror-implicit-function-declaration gtk.c $(pkg-config --cflags --libs gtk4 libsodium x11)
 #include <time.h>
 #include <gtk/gtk.h>
 #include <sodium.h>
@@ -11,12 +11,77 @@
 #include <sys/mman.h> // mlock()
 #include <sys/uio.h> // writev()
 
-static void on_file(GtkDialog * dialog, gint response_id, gpointer _data) {
-  if(response_id == GTK_RESPONSE_ACCEPT) {
-    GFile * file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
-    // TODO decrypt
+/*
+// gtk4 does not support window position, and neither does wayland, but of course I'm on x11 so I'm sad
+// but of course, not all is well, screen size isn't desktop area size, am I in the good screen anyway, and window size isn't even resolved
+#include <gdk/x11/gdkx.h>
+static void my_window_set_position(GtkWindow * window, int x, int y) {
+  Window xw = GDK_SURFACE_XID(GDK_SURFACE(gtk_native_get_surface(GTK_NATIVE(window))));
+  Display * xd = GDK_SURFACE_XDISPLAY(GDK_SURFACE(gtk_native_get_surface(GTK_NATIVE(window))));
+  XMoveWindow(xd, xw, x, y);
+}
+static void my_window_set_position_center(GtkWindow * window) {
+  Display * xd = GDK_SURFACE_XDISPLAY(GDK_SURFACE(gtk_native_get_surface(GTK_NATIVE(window)))); Screen * screen = ScreenOfDisplay(xd,0);
+  int W = WidthOfScreen(screen), H = HeightOfScreen(screen), w = gtk_widget_get_width(GTK_WIDGET(window)), h = gtk_widget_get_height(GTK_WIDGET(window));
+  printf("%d %d %d %d\n", W, H, w, h);
+  my_window_set_position(window, (W - w) / 2, (H - h) / 2);
+}
+*/
+
+static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6]; GFile * file = (GFile *) _widgets[7];
+  const char * error = NULL;
+  // read header
+  char * path = g_file_get_path(file);
+  uint64_t algo, algo_p1, algo_p2, encrypted_n;
+  unsigned char salt[crypto_pwhash_SALTBYTES];
+  unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES];
+  struct iovec iov[6];
+  iov[0].iov_base = &algo; iov[0].iov_len = sizeof(uint64_t);
+  iov[1].iov_base = &algo_p1; iov[1].iov_len = sizeof(uint64_t);
+  iov[2].iov_base = &algo_p2; iov[2].iov_len = sizeof(uint64_t);
+  iov[3].iov_base = salt; iov[3].iov_len = crypto_pwhash_SALTBYTES;
+  iov[4].iov_base = nonce; iov[4].iov_len = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
+  iov[5].iov_base = &encrypted_n; iov[5].iov_len = sizeof(uint64_t);
+  int fd = open(path, O_RDONLY); g_free(path); if(fd == -1) error = "open()"; else {
+  if(readv(fd, iov, 6) == -1) error = "readv()"; else {
+  if(encrypted_n <= crypto_aead_xchacha20poly1305_ietf_ABYTES) error = "encrypted length too short"; else {
+  // read encrypted data
+  unsigned char encrypted[encrypted_n];
+  ssize_t n = read(fd, encrypted, encrypted_n); if(n != encrypted_n) error = "read()"; else {
+  if(close(fd) == -1) error = "close()"; else {
+  // derive key
+  unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
+  const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
+  if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, master_passphrase, strlen(master_passphrase), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) error = "crypto_pwhash()"; else {
+  // decrypt data
+  unsigned char buffer[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(buffer, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()"; else {
+  unsigned long long buffer_n;
+  if(crypto_aead_xchacha20poly1305_ietf_decrypt(buffer, &buffer_n, NULL, encrypted, encrypted_n, NULL, 0, nonce, key)) error = "crypto_aead_xchacha20poly1305_ietf_decrypt()"; else {
+  explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
+  buffer[buffer_n] = '\0';
+  printf("Decrypted %s\n", buffer);
+  explicit_bzero(buffer, buffer_n); munlock(buffer, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1);
+  }}}} explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); }}}}}
+
+  // if something bad happened, show a message dialog on top, and don't destroy the master password dialog
+  if(!error) gtk_window_destroy(GTK_WINDOW(dialog));
+  else {
+    GtkWidget * message = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "ERROR: %s", error);
+    g_signal_connect(message, "response", G_CALLBACK(gtk_window_destroy), NULL);
+    gtk_window_present(GTK_WINDOW(message));
   }
-  gtk_window_destroy(GTK_WINDOW(dialog));
+}
+
+static void on_file(GtkDialog * _dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data;
+  if(response_id == GTK_RESPONSE_ACCEPT) {
+    _widgets[7] = (GtkWidget *)gtk_file_chooser_get_file(GTK_FILE_CHOOSER(_dialog));
+    GtkWidget * master_passphrase = gtk_password_entry_new(); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(master_passphrase), true); _widgets[6] = master_passphrase;
+    GtkWidget * dialog = gtk_dialog_new_with_buttons("Master Passphrase", GTK_WINDOW(_dialog), GTK_DIALOG_MODAL, _("_OK"), GTK_RESPONSE_ACCEPT, _("_Cancel"), GTK_RESPONSE_REJECT, NULL);
+    GtkWidget * content = gtk_dialog_get_content_area(GTK_DIALOG(dialog)); gtk_box_append(GTK_BOX(content), master_passphrase);
+    g_signal_connect(dialog, "response", G_CALLBACK(on_file_with_passphrase), _data);
+    gtk_window_present(GTK_WINDOW(dialog));
+  }
+  gtk_window_destroy(GTK_WINDOW(_dialog));
 }
 
 static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6];
@@ -46,7 +111,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   memcpy(ptr, notes, notes_len); g_free((gpointer)notes); notes = NULL;
   unsigned char dst[src_n+crypto_aead_xchacha20poly1305_ietf_ABYTES];
   unsigned long long _dst_n; crypto_aead_xchacha20poly1305_ietf_encrypt(dst, &_dst_n, (unsigned char *)src, src_n, NULL, 0, NULL, nonce, key); uint64_t encrypted_n = _dst_n;
-  memset(src, 0, src_n); memset(key, 0, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); if(munlock(src, src_n) == -1) error = "munlock()"; else {
+  explicit_bzero(src, src_n); explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); if(munlock(src, src_n) == -1) error = "munlock()"; else {
   // write encrypted file (kdf_algo, kdf_algo_p1, kdf_algo_p2, kdf_salt, encryption_nonce, encrypted_len, encrypted_message)
   struct iovec iov[7];
   iov[0].iov_base = &algo; iov[0].iov_len = sizeof(uint64_t);
@@ -72,7 +137,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
     g_signal_connect(message, "response", G_CALLBACK(gtk_window_destroy), NULL);
     gtk_window_present(GTK_WINDOW(message));
   }
-  memset(key, 0, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
+  explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
 }
 
 static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * window = _widgets[5];
@@ -114,7 +179,7 @@ static void on_activate(GtkApplication * app) {
 
   GtkWidget * window = gtk_application_window_new(app);
   GtkWidget * save = gtk_button_new_from_icon_name("document-save");
-  static GtkWidget * widgets[7]; widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes; widgets[5] = window; widgets[6] = NULL;
+  static GtkWidget * widgets[8]; widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes; widgets[5] = window; widgets[6] = NULL; widgets[7] = NULL;
   g_signal_connect(save, "clicked", G_CALLBACK(on_save), widgets);
 
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
@@ -128,12 +193,13 @@ static void on_activate(GtkApplication * app) {
   gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password-symbolic");
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
-  gtk_window_set_child(GTK_WINDOW (window), vbox);
-  gtk_window_present(GTK_WINDOW (window));
+  gtk_window_set_child(GTK_WINDOW(window), vbox);
+  gtk_window_present(GTK_WINDOW(window));
+  //my_window_set_position_center(GTK_WINDOW(window));
 
   GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_dialog_new("Decrypt", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, _("_Cancel"), GTK_RESPONSE_CANCEL, _("_Open"), GTK_RESPONSE_ACCEPT, NULL); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
   GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
-  g_signal_connect(file_chooser, "response", G_CALLBACK(on_file), NULL);
+  g_signal_connect(file_chooser, "response", G_CALLBACK(on_file), widgets);
   gtk_widget_show(file_chooser);
 }
 
