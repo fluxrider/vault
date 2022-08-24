@@ -13,7 +13,6 @@
 #include <dirent.h> // directory listing
 int filter_file(const struct dirent * entry) { if(entry->d_type != DT_REG) return 0; const char * ext = strrchr(entry->d_name, '.'); if(!ext) return 0; return strcmp(ext, ".enc") == 0; }
 
-/*
 // gtk4 does not support window position, and neither does wayland, but of course I'm on x11 so I'm sad
 // but of course, not all is well, screen size isn't desktop area size, am I in the good screen anyway, and window size isn't even resolved
 #include <gdk/x11/gdkx.h>
@@ -22,13 +21,13 @@ static void my_window_set_position(GtkWindow * window, int x, int y) {
   Display * xd = GDK_SURFACE_XDISPLAY(GDK_SURFACE(gtk_native_get_surface(GTK_NATIVE(window))));
   XMoveWindow(xd, xw, x, y);
 }
-static void my_window_set_position_center(GtkWindow * window) {
+static void my_window_set_position_center(GtkWindow * window, int default_w, int default_h) {
   Display * xd = GDK_SURFACE_XDISPLAY(GDK_SURFACE(gtk_native_get_surface(GTK_NATIVE(window)))); Screen * screen = ScreenOfDisplay(xd,0);
   int W = WidthOfScreen(screen), H = HeightOfScreen(screen), w = gtk_widget_get_width(GTK_WIDGET(window)), h = gtk_widget_get_height(GTK_WIDGET(window));
-  printf("%d %d %d %d\n", W, H, w, h);
+  if(w == 0) w = default_w;
+  if(h == 0) h = default_h;
   my_window_set_position(window, (W - w) / 2, (H - h) / 2);
 }
-*/
 
 static const char * decrypt_init(const char * path, size_t * out_encrypted_n, int * out_fd, uint64_t * out_algo, uint64_t * out_algo_p1, uint64_t * out_algo_p2, unsigned char out_salt[crypto_pwhash_SALTBYTES], unsigned char out_nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]) {
   const char * error = NULL;
@@ -275,8 +274,9 @@ static void on_activate(GtkApplication * app) {
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
   gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
   gtk_window_set_child(GTK_WINDOW(window), vbox);
+  gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
   gtk_window_present(GTK_WINDOW(window));
-  //my_window_set_position_center(GTK_WINDOW(window));
+  my_window_set_position_center(GTK_WINDOW(window), 800, 600);
 
   GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_dialog_new("Decrypt", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, _("_Cancel"), GTK_RESPONSE_CANCEL, _("_Open"), GTK_RESPONSE_ACCEPT, NULL); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
   GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
