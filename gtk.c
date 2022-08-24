@@ -28,48 +28,70 @@ static void my_window_set_position_center(GtkWindow * window) {
 }
 */
 
-static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6]; GFile * file = (GFile *) _widgets[7];
+static const char * decrypt_init(const char * path, size_t * out_encrypted_n, int * out_fd, uint64_t * out_algo, uint64_t * out_algo_p1, uint64_t * out_algo_p2, unsigned char out_salt[crypto_pwhash_SALTBYTES], unsigned char out_nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]) {
   const char * error = NULL;
   // read header
-  char * path = g_file_get_path(file);
-  uint64_t algo, algo_p1, algo_p2, encrypted_n;
-  unsigned char salt[crypto_pwhash_SALTBYTES];
-  unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES];
-  struct iovec iov[6];
-  iov[0].iov_base = &algo; iov[0].iov_len = sizeof(uint64_t);
-  iov[1].iov_base = &algo_p1; iov[1].iov_len = sizeof(uint64_t);
-  iov[2].iov_base = &algo_p2; iov[2].iov_len = sizeof(uint64_t);
-  iov[3].iov_base = salt; iov[3].iov_len = crypto_pwhash_SALTBYTES;
-  iov[4].iov_base = nonce; iov[4].iov_len = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
+  struct iovec iov[6]; uint64_t encrypted_n;
+  iov[0].iov_base = out_algo; iov[0].iov_len = sizeof(uint64_t);
+  iov[1].iov_base = out_algo_p1; iov[1].iov_len = sizeof(uint64_t);
+  iov[2].iov_base = out_algo_p2; iov[2].iov_len = sizeof(uint64_t);
+  iov[3].iov_base = out_salt; iov[3].iov_len = crypto_pwhash_SALTBYTES;
+  iov[4].iov_base = out_nonce; iov[4].iov_len = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
   iov[5].iov_base = &encrypted_n; iov[5].iov_len = sizeof(uint64_t);
-  int fd = open(path, O_RDONLY); g_free(path); if(fd == -1) error = "open()"; else {
-  if(readv(fd, iov, 6) == -1) error = "readv()"; else {
-  if(encrypted_n <= crypto_aead_xchacha20poly1305_ietf_ABYTES) error = "encrypted length too short"; else {
-  // read encrypted data
-  unsigned char encrypted[encrypted_n];
-  ssize_t n = read(fd, encrypted, encrypted_n); if(n != encrypted_n) error = "read()"; else {
-  if(close(fd) == -1) error = "close()"; else {
-  // derive key
-  unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
-  const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
-  if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, master_passphrase, strlen(master_passphrase), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) error = "crypto_pwhash()"; else {
-  // decrypt data
-  unsigned char buffer[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(buffer, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()"; else {
-  unsigned long long buffer_n;
-  if(crypto_aead_xchacha20poly1305_ietf_decrypt(buffer, &buffer_n, NULL, encrypted, encrypted_n, NULL, 0, nonce, key)) error = "crypto_aead_xchacha20poly1305_ietf_decrypt()"; else {
-  explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
-  buffer[buffer_n] = '\0';
-  // populate entry widgets
-  char * ptr = (char *)buffer;
-  char * entry = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
-  char * url = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
-  char * username = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
-  char * password = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
-  char * notes = ptr; gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)), notes, -1);
-  } gtk_editable_set_text(GTK_EDITABLE(_password), password); } gtk_editable_set_text(GTK_EDITABLE(_username), username); } gtk_editable_set_text(GTK_EDITABLE(_url), url); } gtk_editable_set_text(GTK_EDITABLE(_entry), entry);
-  explicit_bzero(buffer, buffer_n); munlock(buffer, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1);
-  }}}} explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); }}}}}
+  int fd = *out_fd = open(path, O_RDONLY); if(fd == -1) error = "open()"; else {
+    if(readv(fd, iov, 6) == -1) error = "readv()"; else {
+      if(encrypted_n <= crypto_aead_xchacha20poly1305_ietf_ABYTES) error = "encrypted length too short"; else {
+        *out_encrypted_n = encrypted_n;
+      }
+    }
+  }
+  return error;
+}
 
+static const char * decrypt(int fd, unsigned char * encrypted_buffer, unsigned char * decrypted_buffer, size_t * out_decrypted_n, size_t encrypted_n, uint64_t algo, uint64_t algo_p1, uint64_t algo_p2, unsigned char salt[crypto_pwhash_SALTBYTES], unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES], const char * master_passphrase) {
+  const char * error = NULL;
+  unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES] = {0}; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
+    // read encrypted data
+    ssize_t n = read(fd, encrypted_buffer, encrypted_n); if(n != encrypted_n) error = "read()"; else { if(close(fd) == -1) error = "close()"; else {
+      // derive key
+      if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, master_passphrase, strlen(master_passphrase), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) error = "crypto_pwhash()"; else {
+        // decrypt data
+        unsigned long long buffer_n;
+        if(crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted_buffer, &buffer_n, NULL, encrypted_buffer, encrypted_n, NULL, 0, nonce, key)) error = "crypto_aead_xchacha20poly1305_ietf_decrypt()"; else {
+          *out_decrypted_n = buffer_n;
+        }
+      }
+    }}
+  }
+  explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); if(munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "munlock()";
+  return error;
+}
+
+static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6]; GFile * file = (GFile *) _widgets[7];
+  uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; char * path = g_file_get_path(file); const char * error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); g_free(path);
+  if(error && fd != -1 && close(fd) == -1) error = "close()";
+  if(!error) {
+    unsigned char encrypted[encrypted_n];
+    const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
+    unsigned char decrypted[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()";
+    if(!error) {
+      size_t decrypted_n; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
+      if(!error) {
+        decrypted[decrypted_n] = '\0';
+        // populate entry widgets
+        char * ptr = (char *)decrypted;
+        char * entry = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+        char * url = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+        char * username = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+        char * password = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+        char * notes = ptr; gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)), notes, -1);
+        } gtk_editable_set_text(GTK_EDITABLE(_password), password); } gtk_editable_set_text(GTK_EDITABLE(_username), username); } gtk_editable_set_text(GTK_EDITABLE(_url), url); } gtk_editable_set_text(GTK_EDITABLE(_entry), entry);
+      }
+      explicit_bzero(decrypted, decrypted_n); if(munlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "munlock";
+    }
+  } else {
+    if(fd != -1) close(fd);
+  }
   // if something bad happened, show a message dialog on top, and don't destroy the master password dialog
   if(!error) gtk_window_destroy(GTK_WINDOW(dialog));
   else {
@@ -95,6 +117,7 @@ static void on_file(GtkDialog * _dialog, gint response_id, gpointer _data) { Gtk
 static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6];
   if(response_id != GTK_RESPONSE_ACCEPT) { gtk_window_destroy(GTK_WINDOW(dialog)); return; }
   const char * error = NULL;
+  // TODO test key on existing file
   // derive key
   const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
   unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
