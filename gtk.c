@@ -29,6 +29,8 @@ static void my_window_set_position_center(GtkWindow * window, int default_w, int
   my_window_set_position(window, (W - w) / 2, (H - h) / 2);
 }
 
+static gboolean on_window_key(GtkWidget * widget, GVariant * args, gpointer user_data) { gtk_window_destroy(GTK_WINDOW(widget)); return true; }
+
 static const char * decrypt_init(const char * path, size_t * out_encrypted_n, int * out_fd, uint64_t * out_algo, uint64_t * out_algo_p1, uint64_t * out_algo_p2, unsigned char out_salt[crypto_pwhash_SALTBYTES], unsigned char out_nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]) {
   const char * error = NULL;
   // read header
@@ -277,6 +279,7 @@ static void on_activate(GtkApplication * app) {
   gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
   gtk_window_present(GTK_WINDOW(window));
   my_window_set_position_center(GTK_WINDOW(window), 800, 600);
+  GtkApplicationWindowClass * window_class = g_type_class_ref(GTK_TYPE_APPLICATION_WINDOW); gtk_widget_class_add_binding(GTK_WIDGET_CLASS(window_class), GDK_KEY_Escape, 0, on_window_key, NULL); g_type_class_unref(window_class);
 
   GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_dialog_new("Decrypt", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, _("_Cancel"), GTK_RESPONSE_CANCEL, _("_Open"), GTK_RESPONSE_ACCEPT, NULL); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
   GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
