@@ -59,7 +59,14 @@ static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   if(crypto_aead_xchacha20poly1305_ietf_decrypt(buffer, &buffer_n, NULL, encrypted, encrypted_n, NULL, 0, nonce, key)) error = "crypto_aead_xchacha20poly1305_ietf_decrypt()"; else {
   explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
   buffer[buffer_n] = '\0';
-  printf("Decrypted %s\n", buffer);
+  // populate entry widgets
+  char * ptr = (char *)buffer;
+  char * entry = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
+  char * url = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
+  char * username = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
+  char * password = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0'; 
+  char * notes = ptr; gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)), notes, -1);
+  } gtk_editable_set_text(GTK_EDITABLE(_password), password); } gtk_editable_set_text(GTK_EDITABLE(_username), username); } gtk_editable_set_text(GTK_EDITABLE(_url), url); } gtk_editable_set_text(GTK_EDITABLE(_entry), entry);
   explicit_bzero(buffer, buffer_n); munlock(buffer, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1);
   }}}} explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); }}}}}
 
