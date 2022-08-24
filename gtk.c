@@ -157,6 +157,13 @@ static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets 
   gtk_window_present(GTK_WINDOW(dialog));
 }
 
+static void on_open(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * window = _widgets[5];
+  GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_dialog_new("Decrypt", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, _("_Cancel"), GTK_RESPONSE_CANCEL, _("_Open"), GTK_RESPONSE_ACCEPT, NULL); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
+  GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
+  g_signal_connect(file_chooser, "response", G_CALLBACK(on_file), _widgets);
+  gtk_widget_show(file_chooser);
+}
+
 static void on_activate(GtkApplication * app) {
   GtkWidget * entry = gtk_entry_new(); gtk_widget_set_hexpand(entry, true);
   GtkWidget * entry_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -190,6 +197,11 @@ static void on_activate(GtkApplication * app) {
   GtkWidget * save = gtk_button_new_from_icon_name("document-save");
   static GtkWidget * widgets[8]; widgets[0] = entry; widgets[1] = url; widgets[2] = username; widgets[3] = password; widgets[4] = notes; widgets[5] = window; widgets[6] = NULL; widgets[7] = NULL;
   g_signal_connect(save, "clicked", G_CALLBACK(on_save), widgets);
+  GtkWidget * open = gtk_button_new_from_icon_name("document-open");
+  g_signal_connect(open, "clicked", G_CALLBACK(on_open), widgets);
+  GtkWidget * controls_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);  
+  gtk_box_append(GTK_BOX(controls_row), save);
+  gtk_box_append(GTK_BOX(controls_row), open);
 
   GtkWidget * vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
   gtk_box_append(GTK_BOX(vbox), entry_row);
@@ -197,7 +209,7 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(vbox), username_row);
   gtk_box_append(GTK_BOX(vbox), password_row);
   gtk_box_append(GTK_BOX(vbox), notes_row);
-  gtk_box_append(GTK_BOX(vbox), save);
+  gtk_box_append(GTK_BOX(vbox), controls_row);
 
   gtk_window_set_icon_name(GTK_WINDOW(window), "dialog-password-symbolic");
   gtk_window_set_title(GTK_WINDOW(window), "Vault");
