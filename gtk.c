@@ -238,6 +238,7 @@ static void on_activate(GtkApplication * app) {
   GtkWidget * username_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_append(GTK_BOX(username_row), gtk_image_new_from_icon_name("avatar-default-symbolic"));
   gtk_box_append(GTK_BOX(username_row), username);
+  // TODO copy username/password to clipboard for X seconds, plus keyboard shortcuts
 
   GtkWidget * password = gtk_password_entry_new(); gtk_widget_set_hexpand(password, true); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(password), true);
   GtkWidget * password_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);

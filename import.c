@@ -108,7 +108,6 @@ int main(int argc, char * argv[]) {
       if(!outside && buffers[index]) { if((index != 5 && lens[index] < 1023) || (index == 5 && lens[index] < 1024*100-1)) buffers[index][lens[index]++] = c; else { error = "buffer overflow"; break; } }
       //printf("T %zd %c\n", index, c);
     }
-    // TODO ignore recycle bin in export
     if(!error) {
       for(int i = 0; i < 10; i++) if(buffers[i]) buffers[i][lens[i]] = '\0';
       printf("Parsed %zd %zd %zd %zd %zd\n", lens[1], lens[2], lens[3], lens[4], lens[5]);
