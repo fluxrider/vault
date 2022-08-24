@@ -124,11 +124,9 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   char * path = NULL;
   int n = scandir(".", &listing, filter_file, alphasort); if(n == -1) error = "scandir()"; if(!error) {
     if(!n) {
-      g_print("no files\n");
       master_passphrase_is_the_common_one = true;
       error = "no other files were found to verify the passphrase, no worries though, just letting you know we tried";
     } else {
-      g_print("some files %d\n", n);
       path = strdup(listing[0]->d_name);
       while(n--) { free(listing[n]); } free(listing);
     }
@@ -147,7 +145,6 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
     } else { if(fd != -1) close(fd); }
   }
   // if something bad happened, show a warning message to the user and if key was not confirmed bail
-  g_print("during verification e:%d c:%d\n", !error, master_passphrase_is_the_common_one);
   if(error) {
     GtkWidget * message = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "WARNING: %s", error);
     g_signal_connect(message, "response", G_CALLBACK(gtk_window_destroy), NULL);
@@ -193,7 +190,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   // TODO sanitize entry for filename
   // filename is derived from entry name and timestamp
   time_t now; if(time(&now) == -1) error = "time()"; else { struct tm * t = localtime(&now); if(!t) error = "localtime()"; else {
-  char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", entry, t->tm_year, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
+  char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", entry, t->tm_year+1900, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
   int fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR ); if(fd == -1) error = "open()"; else {
   if(writev(fd, iov, 7) == -1) error = "writev()"; else {
   if(close(fd) == -1) error = "close()"; else {
