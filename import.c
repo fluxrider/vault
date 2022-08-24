@@ -46,14 +46,15 @@ static const char * write_encrypted_entry(const char * master_passphrase, const 
   iov[4].iov_base = nonce; iov[4].iov_len = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
   iov[5].iov_base = &encrypted_n; iov[5].iov_len = sizeof(uint64_t);
   iov[6].iov_base = dst; iov[6].iov_len = encrypted_n;
-  // TODO sanitize entry for filename
+  // sanitize entry for filename
+  char * sanitized_entry = strdup(entry); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
   // filename is derived from entry name and timestamp
   time_t now; if(time(&now) == -1) error = "time()"; else { struct tm * t = localtime(&now); if(!t) error = "localtime()"; else {
-  char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", entry, t->tm_year+1900, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
+  char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", sanitized_entry, t->tm_year+1900, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
   int fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR ); if(fd == -1) error = "open()"; else {
   if(writev(fd, iov, 7) == -1) error = "writev()"; else {
   if(close(fd) == -1) error = "close()"; else {
-  }}}}}}}}}}
+  }}}}}}free(sanitized_entry);}}}}
   explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); munlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
   return error;
 }
