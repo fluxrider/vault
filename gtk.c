@@ -86,6 +86,7 @@ static void on_file(GtkDialog * _dialog, gint response_id, gpointer _data) { Gtk
     GtkWidget * dialog = gtk_dialog_new_with_buttons("Master Passphrase", GTK_WINDOW(_dialog), GTK_DIALOG_MODAL, _("_OK"), GTK_RESPONSE_ACCEPT, _("_Cancel"), GTK_RESPONSE_REJECT, NULL);
     GtkWidget * content = gtk_dialog_get_content_area(GTK_DIALOG(dialog)); gtk_box_append(GTK_BOX(content), master_passphrase);
     g_signal_connect(dialog, "response", G_CALLBACK(on_file_with_passphrase), _data);
+    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT); GValue value = {0}; g_value_init(&value, G_TYPE_BOOLEAN); g_value_set_boolean(&value, true); g_object_set_property(G_OBJECT(master_passphrase), "activates-default", &value);
     gtk_window_present(GTK_WINDOW(dialog));
   }
   gtk_window_destroy(GTK_WINDOW(_dialog));
@@ -152,6 +153,7 @@ static void on_save(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets 
   GtkWidget * dialog = gtk_dialog_new_with_buttons("Master Passphrase", GTK_WINDOW(window), GTK_DIALOG_MODAL, _("_OK"), GTK_RESPONSE_ACCEPT, _("_Cancel"), GTK_RESPONSE_REJECT, NULL);
   GtkWidget * content = gtk_dialog_get_content_area(GTK_DIALOG(dialog)); gtk_box_append(GTK_BOX(content), master_passphrase);
   g_signal_connect(dialog, "response", G_CALLBACK(on_save_with_passphrase), _data);
+  gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT); GValue value = {0}; g_value_init(&value, G_TYPE_BOOLEAN); g_value_set_boolean(&value, true); g_object_set_property(G_OBJECT(master_passphrase), "activates-default", &value);
   gtk_window_present(GTK_WINDOW(dialog));
 }
 
