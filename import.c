@@ -47,7 +47,7 @@ static const char * write_encrypted_entry(const char * master_passphrase, const 
   iov[5].iov_base = &encrypted_n; iov[5].iov_len = sizeof(uint64_t);
   iov[6].iov_base = dst; iov[6].iov_len = encrypted_n;
   // sanitize entry for filename
-  char * sanitized_entry = strdup(entry); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
+  char * sanitized_entry = strdup(entry); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
   // filename is derived from entry name and timestamp
   time_t now; if(time(&now) == -1) error = "time()"; else { struct tm * t = localtime(&now); if(!t) error = "localtime()"; else {
   char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", sanitized_entry, t->tm_year+1900, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
@@ -76,12 +76,13 @@ int main(int argc, char * argv[]) {
   }
 
   // buffers
+  char group[1024]; // that's a keepassxc thing
   char entry[1024];
   char url[1024];
   char username[1024];
   char password[1024];
   char * notes = malloc(1024*100);
-  char * buffers[] = {NULL, entry, username, password, url, notes, NULL, NULL, NULL, NULL};
+  char * buffers[] = {group, entry, username, password, url, notes, NULL, NULL, NULL, NULL};
 
   // read input file (i.e. cvs export of keepassxc)
   int fd = open(argv[1], O_RDONLY); if(fd == -1) error = "open()";
@@ -95,7 +96,7 @@ int main(int argc, char * argv[]) {
       if(maybe_outside) {
         maybe_outside = false;
         if(c == '"') {
-          if(buffers[index]) buffers[index][lens[index]++] = c;
+          if(buffers[index]) { if((index != 5 && lens[index] < 1023) || (index == 5 && lens[index] < 1024*100-1)) buffers[index][lens[index]++] = c; else { error = "buffer overflow"; break; } }
           continue;
         } else {
           outside = true;
@@ -104,9 +105,10 @@ int main(int argc, char * argv[]) {
       if(outside && c == '\n') break;
       if(outside && c == '"') { outside = false; index++; continue; }
       if(!outside && c == '"') { maybe_outside = true; continue; }
-      if(!outside && buffers[index]) buffers[index][lens[index]++] = c;
+      if(!outside && buffers[index]) { if((index != 5 && lens[index] < 1023) || (index == 5 && lens[index] < 1024*100-1)) buffers[index][lens[index]++] = c; else { error = "buffer overflow"; break; } }
       //printf("T %zd %c\n", index, c);
     }
+    // TODO ignore recycle bin in export
     if(!error) {
       for(int i = 0; i < 10; i++) if(buffers[i]) buffers[i][lens[i]] = '\0';
       printf("Parsed %zd %zd %zd %zd %zd\n", lens[1], lens[2], lens[3], lens[4], lens[5]);
@@ -115,7 +117,7 @@ int main(int argc, char * argv[]) {
       printf("username: %s\n", username);
       printf("password: %s\n", password);
       printf("notes: %s\n", notes);
-      if(lens[1] != 0 && strcmp(entry, "Title")) error = write_encrypted_entry(master_passphrase, entry, url, username, password, notes);
+      if(lens[1] != 0 && strcmp(entry, "Title") && strcmp(group, "Root/Recycle Bin")) error = write_encrypted_entry(master_passphrase, entry, url, username, password, notes);
       if(n == 0) break;
     }
   }

@@ -188,7 +188,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   iov[5].iov_base = &encrypted_n; iov[5].iov_len = sizeof(uint64_t);
   iov[6].iov_base = dst; iov[6].iov_len = encrypted_n;
   // sanitize entry for filename
-  char * sanitized_entry = strdup(entry); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
+  char * sanitized_entry = strdup(entry); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
   // filename is derived from entry name and timestamp
   time_t now; if(time(&now) == -1) error = "time()"; else { struct tm * t = localtime(&now); if(!t) error = "localtime()"; else {
   char filename[1024]; int n = snprintf(filename, 1024, "%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", sanitized_entry, t->tm_year+1900, t->tm_mon, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
