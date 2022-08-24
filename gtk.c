@@ -10,6 +10,8 @@
 #include <fcntl.h> // open()
 #include <sys/mman.h> // mlock()
 #include <sys/uio.h> // writev()
+#include <dirent.h> // directory listing
+int filter_file(const struct dirent * entry) { if(entry->d_type != DT_REG) return 0; const char * ext = strrchr(entry->d_name, '.'); if(!ext) return 0; return strcmp(ext, ".enc") == 0; }
 
 /*
 // gtk4 does not support window position, and neither does wayland, but of course I'm on x11 so I'm sad
@@ -68,8 +70,8 @@ static const char * decrypt(int fd, unsigned char * encrypted_buffer, unsigned c
 }
 
 static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6]; GFile * file = (GFile *) _widgets[7];
-  uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; char * path = g_file_get_path(file); const char * error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); g_free(path);
-  if(error && fd != -1 && close(fd) == -1) error = "close()";
+  if(response_id != GTK_RESPONSE_ACCEPT) { gtk_window_destroy(GTK_WINDOW(dialog)); return; }
+  uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; char * path = g_file_get_path(file); const char * error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); g_free(path); if(error && fd != -1 && close(fd) == -1) error = "close()";
   if(!error) {
     unsigned char encrypted[encrypted_n];
     const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
@@ -87,14 +89,11 @@ static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
         char * notes = ptr; gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(_notes)), notes, -1);
         } gtk_editable_set_text(GTK_EDITABLE(_password), password); } gtk_editable_set_text(GTK_EDITABLE(_username), username); } gtk_editable_set_text(GTK_EDITABLE(_url), url); } gtk_editable_set_text(GTK_EDITABLE(_entry), entry);
       }
-      explicit_bzero(decrypted, decrypted_n); if(munlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "munlock";
+      explicit_bzero(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1); if(munlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "munlock";
     }
-  } else {
-    if(fd != -1) close(fd);
-  }
+  } else { if(fd != -1) close(fd); }
   // if something bad happened, show a message dialog on top, and don't destroy the master password dialog
-  if(!error) gtk_window_destroy(GTK_WINDOW(dialog));
-  else {
+  if(!error) gtk_window_destroy(GTK_WINDOW(dialog)); else {
     GtkWidget * message = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "ERROR: %s", error);
     g_signal_connect(message, "response", G_CALLBACK(gtk_window_destroy), NULL);
     gtk_window_present(GTK_WINDOW(message));
@@ -117,7 +116,45 @@ static void on_file(GtkDialog * _dialog, gint response_id, gpointer _data) { Gtk
 static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpointer _data) { GtkWidget ** _widgets = _data; GtkWidget * _entry = _widgets[0]; GtkWidget * _url = _widgets[1]; GtkWidget * _username = _widgets[2]; GtkWidget * _password = _widgets[3]; GtkWidget * _notes = _widgets[4]; GtkWidget * _master_passphrase = _widgets[6];
   if(response_id != GTK_RESPONSE_ACCEPT) { gtk_window_destroy(GTK_WINDOW(dialog)); return; }
   const char * error = NULL;
-  // TODO test key on existing file
+
+  // test key on a random existing file in folder
+  bool master_passphrase_is_the_common_one = false;
+  struct dirent ** listing;
+  char * path = NULL;
+  int n = scandir(".", &listing, filter_file, alphasort); if(n == -1) error = "scandir()"; if(!error) {
+    if(!n) {
+      g_print("no files\n");
+      master_passphrase_is_the_common_one = true;
+      error = "no other files were found to verify the passphrase, no worries though, just letting you know we tried";
+    } else {
+      g_print("some files %d\n", n);
+      path = strdup(listing[0]->d_name);
+      while(n--) { free(listing[n]); } free(listing);
+    }
+  }
+  if(!error) {
+    uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); free(path); if(error && fd != -1 && close(fd) == -1) error = "close()";
+    if(!error) {
+      unsigned char encrypted[encrypted_n];
+      const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
+      unsigned char decrypted[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()";
+      if(!error) {
+        size_t decrypted_n; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
+        master_passphrase_is_the_common_one = !error;
+        explicit_bzero(decrypted, decrypted_n); if(munlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "munlock";
+      }
+    } else { if(fd != -1) close(fd); }
+  }
+  // if something bad happened, show a warning message to the user and if key was not confirmed bail
+  g_print("during verification e:%d c:%d\n", !error, master_passphrase_is_the_common_one);
+  if(error) {
+    GtkWidget * message = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "WARNING: %s", error);
+    g_signal_connect(message, "response", G_CALLBACK(gtk_window_destroy), NULL);
+    gtk_window_present(GTK_WINDOW(message));
+    if(!master_passphrase_is_the_common_one) return;
+    error = NULL;
+  }
+
   // derive key
   const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
   unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
