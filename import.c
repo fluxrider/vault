@@ -10,6 +10,7 @@
 #include <sys/mman.h> // mlock()
 #include <stdlib.h>
 #include <termios.h>
+#include <stdbool.h>
     
 static const char * write_encrypted_entry(const char * master_passphrase, const char * entry, const char * url, const char * username, const char * password, const char * notes) {
   const char * error = NULL;
@@ -59,18 +60,68 @@ static const char * write_encrypted_entry(const char * master_passphrase, const 
 
 
 int main(int argc, char * argv[]) {
+  if(argc != 2) { fprintf(stderr, "usage: import keepassxc.cvs\n"); return EXIT_FAILURE; }
   if(sodium_init()) { fprintf(stderr, "ERROR: sodium_init()\n"); return EXIT_FAILURE; }
   const char * error = NULL;
   
-  struct termios termold, termnew; tcgetattr(0, &termold); termnew = termold; termnew.c_lflag &= ~ECHO; termnew.c_cc[VINTR] = termnew.c_cc[VWERASE] = termnew.c_cc[VSUSP] = termnew.c_cc[VSTOP] = termnew.c_cc[VSTART] = termnew.c_cc[VQUIT] = termnew.c_cc[VLNEXT] = termnew.c_cc[VKILL] = termnew.c_cc[VEOF] = '\0';
-  tcsetattr(0, TCSANOW, &termnew);
-  char * master_passphrase = NULL; size_t len = 0; size_t read = getline(&master_passphrase, &len, stdin); mlock(master_passphrase, len);
-  tcsetattr(0, TCSANOW, &termold);
-  if(master_passphrase[read-1] == '\n') master_passphrase[read-1] = '\0';
+  // read master passphrase
+  char * master_passphrase = NULL; size_t mp_len = 0; {
+    printf("master passphrase:\n");
+    struct termios termold, termnew; tcgetattr(0, &termold); termnew = termold; termnew.c_lflag &= ~ECHO; termnew.c_cc[VINTR] = termnew.c_cc[VWERASE] = termnew.c_cc[VSUSP] = termnew.c_cc[VSTOP] = termnew.c_cc[VSTART] = termnew.c_cc[VQUIT] = termnew.c_cc[VLNEXT] = termnew.c_cc[VKILL] = termnew.c_cc[VEOF] = '\0';
+    tcsetattr(0, TCSANOW, &termnew);
+    size_t read = getline(&master_passphrase, &mp_len, stdin); mlock(master_passphrase, mp_len);
+    tcsetattr(0, TCSANOW, &termold);
+    if(master_passphrase[read-1] == '\n') master_passphrase[read-1] = '\0';
+  }
 
-  error = write_encrypted_entry(master_passphrase, "test_entry", "test_url", "test_username", "test_password", "test_notes");
+  // buffers
+  char entry[1024];
+  char url[1024];
+  char username[1024];
+  char password[1024];
+  char * notes = malloc(1024*100);
+  char * buffers[] = {NULL, entry, username, password, url, notes, NULL, NULL, NULL, NULL};
+
+  // read input file (i.e. cvs export of keepassxc)
+  int fd = open(argv[1], O_RDONLY); if(fd == -1) error = "open()";
+  while(!error) {
+    size_t index = -1; // [0,9]
+    size_t lens[] = {0,0,0,0,0,0,0,0,0};
+    ssize_t n;
+    bool outside = true, maybe_outside = false;
+    for(;;) {
+      char c; n = read(fd, &c, 1); if(n == -1) error = "read()"; if(n == 0) break;
+      if(maybe_outside) {
+        maybe_outside = false;
+        if(c == '"') {
+          if(buffers[index]) buffers[index][lens[index]++] = c;
+          continue;
+        } else {
+          outside = true;
+        }
+      }
+      if(outside && c == '\n') break;
+      if(outside && c == '"') { outside = false; index++; continue; }
+      if(!outside && c == '"') { maybe_outside = true; continue; }
+      if(!outside && buffers[index]) buffers[index][lens[index]++] = c;
+      //printf("T %zd %c\n", index, c);
+    }
+    if(!error) {
+      for(int i = 0; i < 10; i++) if(buffers[i]) buffers[i][lens[i]] = '\0';
+      printf("Parsed %zd %zd %zd %zd %zd\n", lens[1], lens[2], lens[3], lens[4], lens[5]);
+      printf("entry: %s\n", entry);
+      printf("url: %s\n", url);
+      printf("username: %s\n", username);
+      printf("password: %s\n", password);
+      printf("notes: %s\n", notes);
+      if(lens[1] != 0 && strcmp(entry, "Title")) error = write_encrypted_entry(master_passphrase, entry, url, username, password, notes);
+      if(n == 0) break;
+    }
+  }
   if(error) fprintf(stderr, "ERROR: %s\n", error);
+  if(fd != -1) close(fd);
+  free(notes);
 
-  explicit_bzero(master_passphrase, len); munlock(master_passphrase, len); free(master_passphrase);
+  explicit_bzero(master_passphrase, mp_len); munlock(master_passphrase, mp_len); free(master_passphrase);
   return error? EXIT_FAILURE : EXIT_SUCCESS;
 }
