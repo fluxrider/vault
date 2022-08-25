@@ -223,8 +223,16 @@ static void on_open(GtkWidget * widget, gpointer _data) { GtkWidget ** _widgets 
   gtk_widget_show(file_chooser);
 }
 
+static guint copy_timeout_id;
+static gboolean clear_copy(gpointer user_data) {
+  copy_timeout_id = 0;
+  gdk_clipboard_set_text(gdk_display_get_clipboard(gdk_display_get_default()), "");
+  return G_SOURCE_REMOVE;
+}
 static void on_copy(GtkWidget * widget, gpointer _data) {
+  if(copy_timeout_id) g_source_remove(copy_timeout_id);
   gdk_clipboard_set_text(gdk_display_get_clipboard(gdk_display_get_default()), gtk_editable_get_text(GTK_EDITABLE(_data)));
+  copy_timeout_id = g_timeout_add(1000 * 3, clear_copy, NULL);
 }
 
 static void on_activate(GtkApplication * app) {
@@ -246,7 +254,7 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(username_row), gtk_image_new_from_icon_name("avatar-default-symbolic"));
   gtk_box_append(GTK_BOX(username_row), username);
   gtk_box_append(GTK_BOX(username_row), copy_username);
-  // TODO copy username/password to clipboard for X seconds, plus keyboard shortcuts
+  // TODO keyboard shortcuts for copy
 
   GtkWidget * password = gtk_password_entry_new(); gtk_widget_set_hexpand(password, true); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(password), true);
   GtkWidget * copy_password = gtk_button_new_from_icon_name("edit-copy"); g_signal_connect(copy_password, "clicked", G_CALLBACK(on_copy), password);
