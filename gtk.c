@@ -29,7 +29,7 @@ static void my_window_set_position_center(GtkWindow * window, int default_w, int
   my_window_set_position(window, (W - w) / 2, (H - h) / 2);
 }
 
-static gboolean on_window_key(GtkWidget * widget, GVariant * args, gpointer user_data) { gtk_window_destroy(GTK_WINDOW(widget)); return true; }
+static gboolean on_window_key_escape(GtkWidget * widget, GVariant * args, gpointer user_data) { gtk_window_destroy(GTK_WINDOW(widget)); return true; }
 
 static const char * decrypt_init(const char * path, size_t * out_encrypted_n, int * out_fd, uint64_t * out_algo, uint64_t * out_algo_p1, uint64_t * out_algo_p2, unsigned char out_salt[crypto_pwhash_SALTBYTES], unsigned char out_nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]) {
   const char * error = NULL;
@@ -232,8 +232,10 @@ static gboolean clear_copy(gpointer user_data) {
 static void on_copy(GtkWidget * widget, gpointer _data) {
   if(copy_timeout_id) g_source_remove(copy_timeout_id);
   gdk_clipboard_set_text(gdk_display_get_clipboard(gdk_display_get_default()), gtk_editable_get_text(GTK_EDITABLE(_data)));
-  copy_timeout_id = g_timeout_add(1000 * 3, clear_copy, NULL);
+  copy_timeout_id = g_timeout_add(1000 * 10, clear_copy, NULL);
 }
+
+static gboolean on_window_key_copy(GtkWidget * widget, GVariant * args, gpointer _data) { on_copy(NULL, _data); return true; }
 
 static void on_activate(GtkApplication * app) {
   GtkWidget * entry = gtk_entry_new(); gtk_widget_set_hexpand(entry, true);
@@ -254,7 +256,6 @@ static void on_activate(GtkApplication * app) {
   gtk_box_append(GTK_BOX(username_row), gtk_image_new_from_icon_name("avatar-default-symbolic"));
   gtk_box_append(GTK_BOX(username_row), username);
   gtk_box_append(GTK_BOX(username_row), copy_username);
-  // TODO keyboard shortcuts for copy
 
   GtkWidget * password = gtk_password_entry_new(); gtk_widget_set_hexpand(password, true); gtk_password_entry_set_show_peek_icon(GTK_PASSWORD_ENTRY(password), true);
   GtkWidget * copy_password = gtk_button_new_from_icon_name("edit-copy"); g_signal_connect(copy_password, "clicked", G_CALLBACK(on_copy), password);
@@ -296,7 +297,12 @@ static void on_activate(GtkApplication * app) {
   gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
   gtk_window_present(GTK_WINDOW(window));
   my_window_set_position_center(GTK_WINDOW(window), 800, 600);
-  GtkApplicationWindowClass * window_class = g_type_class_ref(GTK_TYPE_APPLICATION_WINDOW); gtk_widget_class_add_binding(GTK_WIDGET_CLASS(window_class), GDK_KEY_Escape, 0, on_window_key, NULL); g_type_class_unref(window_class);
+  GtkApplicationWindowClass * window_class = g_type_class_ref(GTK_TYPE_APPLICATION_WINDOW);
+  gtk_widget_class_add_binding(GTK_WIDGET_CLASS(window_class), GDK_KEY_Escape, 0, on_window_key_escape, NULL);
+  { GtkShortcut * shortcut = gtk_shortcut_new(gtk_keyval_trigger_new(GDK_KEY_B, GDK_CONTROL_MASK), gtk_callback_action_new(on_window_key_copy, username, NULL)); gtk_widget_class_add_shortcut(GTK_WIDGET_CLASS(window_class), shortcut); g_object_unref(shortcut); }
+  { GtkShortcut * shortcut = gtk_shortcut_new(gtk_keyval_trigger_new(GDK_KEY_P, GDK_CONTROL_MASK), gtk_callback_action_new(on_window_key_copy, password, NULL)); gtk_widget_class_add_shortcut(GTK_WIDGET_CLASS(window_class), shortcut); g_object_unref(shortcut); }
+  { GtkShortcut * shortcut = gtk_shortcut_new(gtk_keyval_trigger_new(GDK_KEY_W, GDK_CONTROL_MASK), gtk_callback_action_new(on_window_key_copy, url, NULL)); gtk_widget_class_add_shortcut(GTK_WIDGET_CLASS(window_class), shortcut); g_object_unref(shortcut); }
+  g_type_class_unref(window_class);
 
   GFile * path = g_file_new_for_commandline_arg("."); GtkWidget * file_chooser = gtk_file_chooser_dialog_new("Decrypt", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, _("_Cancel"), GTK_RESPONSE_CANCEL, _("_Open"), GTK_RESPONSE_ACCEPT, NULL); gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser), path, NULL); g_object_unref(path);
   GtkFileFilter * filter = gtk_file_filter_new(); gtk_file_filter_add_suffix(filter, "enc"); gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser), filter); g_object_unref(filter);
