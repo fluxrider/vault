@@ -14,7 +14,13 @@ I tried a few online password services, but found that LastPass 'forgot' some ne
   * You'll have to enter the master passphrase each time on open/save.
     * But no worries, I double check that when saving, the same master passphrase was used on a random file to prevent typo issues.
 * The 'import' program can parse the csv export of KeePassXC and save all that in my format.
-* GTK gui.
+* Multiple front-end
+  * GTK 4
+    * Beware, this family of libraries has a bad history when it comes to testing before releases.
+      * Once in a version, searching in the file dialog would crash this app.
+      * Once in a version, going full screen would crash X (not applicable to this app, but hey).
+  * Command line
+    * Read-only, meant as a emergency fall-back when GTK 4 is unusable.
 
 ## Future works
 * Android gui.
