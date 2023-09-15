@@ -2,3 +2,5 @@
 *.enc
 cli
 import
+*.obj
+*.exe
