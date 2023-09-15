@@ -60,7 +60,9 @@ int main (int argc, char * argv[]) {
     unsigned char * decrypted = _alloca(encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1); if(!VirtualLock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1)) error = "VirtualLock()";
     if(!error) {
       printf("Master Passphrase: \n");
+      HANDLE stdinHandle = GetStdHandle(STD_INPUT_HANDLE); DWORD mode; GetConsoleMode(stdinHandle, &mode); mode &= ~ENABLE_ECHO_INPUT; SetConsoleMode(stdinHandle, mode);
       char master_buffer[1024]; if(FAILED(StringCbGetsA(master_buffer, sizeof(master_buffer)))) error = "failed to read passphrase";
+      SetConsoleMode(stdinHandle, mode | ENABLE_ECHO_INPUT);
       if(!error) {
         const char * master_passphrase = master_buffer;
         size_t decrypted_n; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
