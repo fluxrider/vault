@@ -2,7 +2,7 @@
 Keeps your passwords and and notes encrypted (using the modern at time of writing (2022), ARGON2 key derivation and AEAD/xchacha20poly1305 encryption).
 
 ## Rational
-I've been using KeePassXC for two years, and suddently it corrupted my password file. Even when reverting to an old backup of the file, modifying anything corrupts it. It's not like I can send the keepassxc team my password file for them to test. Also, like pretty much all project out there, their code is too messy, too many files, too many lines, too many features. With my fibrofog it's a lost cause.
+I had been using KeePassXC for two years, and suddently it corrupted my password file. Even when reverting to an old backup of the file, modifying anything corrupts it. It's not like I can send the keepassxc team my password file for them to test. Also, like pretty much all project out there, their code is too messy, too many files, too many lines, too many features. With my fibrofog it's a lost cause.
 
 I tried a few online password services, but found that LastPass 'forgot' some new entries if the connection to the internet was spotty, and RoboForm kept guessing wrong the url for entries.
 
@@ -21,9 +21,11 @@ I tried a few online password services, but found that LastPass 'forgot' some ne
       * Once in a version, going full screen would crash X (not applicable to this app, but hey).
   * Command line
     * Read-only, meant as a emergency fall-back when GTK 4 is unusable.
+  * Windows version of command line front-end
+  * MSYS2 Windows version of the GTK 4 front-end
 
 ## Future works
-* Android gui.
+* Android version
 
 ## Sorry
-* It's written in fibrofog C.
+* It's written in fibrofog C, and the Windows ports were hastily done.
