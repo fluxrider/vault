@@ -16,6 +16,19 @@
 #include <QFile>
 #include <QFileInfo>
 
+#include <sodium.h>
+#include <sys/mman.h> // mlock()
+
+#if defined(__ANDROID__)
+#include <android/log.h>
+#define flog(...) __android_log_print(ANDROID_LOG_WARN, "Archon", __VA_ARGS__)
+#define ferr(...) __android_log_print(ANDROID_LOG_ERROR, "Archon", __VA_ARGS__)
+#else
+#include <stdio.h>
+#define flog(...) printf(__VA_ARGS__)
+#define ferr(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 static QString * folder;
 void remember_folder(const QString & filename) {
   QFileInfo info(filename); delete folder; folder = new QString(info.absolutePath());
@@ -104,6 +117,7 @@ void Window::on_viz_username() { username_edit->setEchoMode(username_edit->echoM
 void Window::on_viz_password() { password_edit->setEchoMode(password_edit->echoMode() == QLineEdit::Password? QLineEdit::Normal : QLineEdit::Password); }
 
 int main(int argc, char * argv[]) {
+  if(sodium_init()) { ferr("ERROR: sodium_init()\n"); return EXIT_FAILURE; }
   QApplication app(argc, argv);
   restore_folder();
   Window window; window.show();
