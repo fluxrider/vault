@@ -78,7 +78,7 @@ static void on_file_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
     const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
     unsigned char decrypted[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()";
     if(!error) {
-      size_t decrypted_n; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
+      size_t decrypted_n = 0; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
       if(!error) {
         decrypted[decrypted_n] = '\0';
         // populate entry widgets
@@ -118,7 +118,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
   if(response_id != GTK_RESPONSE_ACCEPT) { gtk_window_destroy(GTK_WINDOW(dialog)); return; }
   const char * error = NULL;
 
-  // test key on a random existing file in folder
+  // test key on an arbitrary existing file in folder
   bool master_passphrase_is_the_common_one = false;
   struct dirent ** listing;
   char * path = NULL;
@@ -138,7 +138,7 @@ static void on_save_with_passphrase(GtkDialog * dialog, gint response_id, gpoint
       const char * master_passphrase = gtk_editable_get_text(GTK_EDITABLE(_master_passphrase));
       unsigned char decrypted[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()";
       if(!error) {
-        size_t decrypted_n; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
+        size_t decrypted_n = 0; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
         master_passphrase_is_the_common_one = !error;
         explicit_bzero(decrypted, decrypted_n); if(munlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "munlock";
       }
