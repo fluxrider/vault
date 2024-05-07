@@ -23,9 +23,14 @@ I tried a few online password services, but found that LastPass 'forgot' some ne
     * Read-only, meant as a emergency fall-back when GTK 4 is unusable.
   * Windows version of command line front-end
   * MSYS2 Windows version of the GTK 4 front-end
+  * QT6
+    * I wrote this one because the GTK 4 version is really slow (i.e. multiple seconds) at loading the open file dialog now that I'm running KDE Plasma 6 instead of OpenBox.
+    * I'm hoping that this will be my way into an android port.
 
 ## Future works
 * Android version
+* I never centralized the encryption related code so it's duplicated in the various GUIS.
+  * It would need a lot of work, and it's not thousand of lines so I never bothered.
 
 ## Sorry
 * It's written in fibrofog C, and the Windows ports were hastily done.

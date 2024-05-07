@@ -138,6 +138,8 @@ Window::Window(QWidget * parent)
   setLayout(layout);
 
   setWindowTitle(tr("Password Vault"));
+  
+  on_open();
 }
 
 void Window::on_save() {
