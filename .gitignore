@@ -4,3 +4,9 @@ cli
 import
 *.obj
 *.exe
+folder.txt
+.qmake.stash
+Makefile
+qt
+*.o
+moc_*
