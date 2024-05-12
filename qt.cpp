@@ -149,13 +149,13 @@ void Window::on_save() {
     bool master_passphrase_is_the_common_one = false;
     struct dirent ** listing;
     char * path = NULL;
-    int n = scandir(folder->toLocal8Bit().data(), &listing, filter_file, alphasort); if(n == -1) error = "scandir()"; if(!error) {
+    int n = scandir(folder->toUtf8().constData(), &listing, filter_file, alphasort); if(n == -1) error = "scandir()"; if(!error) {
       if(!n) {
         master_passphrase_is_the_common_one = true;
         error = "no other files were found to verify the passphrase, no worries though, just letting you know we tried";
       } else {
-        path = (char*)malloc(strlen(folder->toLocal8Bit().data()) + 1 + strlen(listing[0]->d_name) + 1);
-        sprintf(path, "%s/%s", folder->toLocal8Bit().data(), listing[0]->d_name);
+        path = (char*)malloc(strlen(folder->toUtf8().constData()) + 1 + strlen(listing[0]->d_name) + 1);
+        sprintf(path, "%s/%s", folder->toUtf8().constData(), listing[0]->d_name);
         while(n--) { free(listing[n]); } free(listing);
       }
     }
@@ -164,10 +164,9 @@ void Window::on_save() {
       uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); free(path); if(error && fd != -1 && ::close(fd) == -1) error = "close()";
       if(!error) {
         unsigned char encrypted[encrypted_n];
-        const char * master_passphrase = passphrase.toLocal8Bit().data();
         unsigned char decrypted[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()";
         if(!error) {
-          size_t decrypted_n = 0; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
+          size_t decrypted_n = 0; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, passphrase.toUtf8().constData());
           master_passphrase_is_the_common_one = !error;
           explicit_bzero(decrypted, decrypted_n); if(munlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "munlock";
         }
@@ -181,26 +180,25 @@ void Window::on_save() {
     }
 
     // derive key
-    const char * master_passphrase = passphrase.toLocal8Bit().data();
     unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES]; if(mlock(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES) == -1) error = "mlock()"; else {
     unsigned char salt[crypto_pwhash_SALTBYTES]; randombytes_buf(salt, crypto_pwhash_SALTBYTES);
     uint64_t algo = crypto_pwhash_ALG_ARGON2ID13, algo_p1 = crypto_pwhash_OPSLIMIT_MODERATE, algo_p2 = crypto_pwhash_MEMLIMIT_MODERATE;
-    if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, master_passphrase, strlen(master_passphrase), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) error = "crypto_pwhash()"; else {
+    if(crypto_pwhash(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES, passphrase.toUtf8().constData(), strlen(passphrase.toUtf8().constData()), salt, (unsigned long long)algo_p1, (size_t)algo_p2, (int)algo)) error = "crypto_pwhash()"; else {
     // read entry
-    const char * entry = name_edit->text().toLocal8Bit().data(); size_t entry_len = strlen(entry);
-    const char * url = url_edit->text().toLocal8Bit().data(); size_t url_len = strlen(url);
-    const char * username = username_edit->text().toLocal8Bit().data(); size_t username_len = strlen(username);
-    const char * password = password_edit->text().toLocal8Bit().data(); size_t password_len = strlen(password);
-    const char * notes = notes_edit->toPlainText().toLocal8Bit().data(); size_t notes_len = strlen(notes);
+    size_t entry_len = strlen(name_edit->text().toUtf8().constData());
+    size_t url_len = strlen(url_edit->text().toUtf8().constData());
+    size_t username_len = strlen(username_edit->text().toUtf8().constData());
+    size_t password_len = strlen(password_edit->text().toUtf8().constData());
+    size_t notes_len = strlen(notes_edit->toPlainText().toUtf8().constData());
     // encrypt
     unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; randombytes_buf(nonce, crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
     size_t src_n = entry_len+1+url_len+1+username_len+1+password_len+1+notes_len; char src[src_n]; if(mlock(src, src_n) == -1) error = "mlock()"; else {
     char * ptr = src;
-    memcpy(ptr, entry, entry_len); ptr += entry_len; *ptr++ = '\n';
-    memcpy(ptr, url, url_len); ptr += url_len; *ptr++ = '\n';
-    memcpy(ptr, username, username_len); ptr += username_len; *ptr++ = '\n';
-    memcpy(ptr, password, password_len); ptr += password_len; *ptr++ = '\n';
-    memcpy(ptr, notes, notes_len);
+    memcpy(ptr, name_edit->text().toUtf8().constData(), entry_len); ptr += entry_len; *ptr++ = '\n';
+    memcpy(ptr, url_edit->text().toUtf8().constData(), url_len); ptr += url_len; *ptr++ = '\n';
+    memcpy(ptr, username_edit->text().toUtf8().constData(), username_len); ptr += username_len; *ptr++ = '\n';
+    memcpy(ptr, password_edit->text().toUtf8().constData(), password_len); ptr += password_len; *ptr++ = '\n';
+    memcpy(ptr, notes_edit->toPlainText().toUtf8().constData(), notes_len);
     unsigned char dst[src_n+crypto_aead_xchacha20poly1305_ietf_ABYTES];
     unsigned long long _dst_n; crypto_aead_xchacha20poly1305_ietf_encrypt(dst, &_dst_n, (unsigned char *)src, src_n, NULL, 0, NULL, nonce, key); uint64_t encrypted_n = _dst_n;
     explicit_bzero(src, src_n); explicit_bzero(key, crypto_aead_xchacha20poly1305_ietf_KEYBYTES); if(munlock(src, src_n) == -1) error = "munlock()"; else {
@@ -214,10 +212,10 @@ void Window::on_save() {
     iov[5].iov_base = &encrypted_n; iov[5].iov_len = sizeof(uint64_t);
     iov[6].iov_base = dst; iov[6].iov_len = encrypted_n;
     // sanitize entry for filename
-    char * sanitized_entry = strdup(entry); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
+    char * sanitized_entry = strdup(name_edit->text().toUtf8().constData()); { char * ptr = sanitized_entry; while(*ptr) { switch(*ptr) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': *ptr = '_'; } ptr++; } }
     // filename is derived from entry name and timestamp
     time_t now; if(time(&now) == -1) error = "time()"; else { struct tm * t = localtime(&now); if(!t) error = "localtime()"; else {
-    char filename[1024]; int n = snprintf(filename, 1024, "%s/%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", folder->toLocal8Bit().data(), sanitized_entry, t->tm_year+1900, t->tm_mon+1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
+    char filename[1024]; int n = snprintf(filename, 1024, "%s/%s.%04d-%02d-%02d_%02d-%02d-%02d.enc", folder->toUtf8().data(), sanitized_entry, t->tm_year+1900, t->tm_mon+1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec); if(n > 1024 || n == -1) error = "snprintf()"; else {
     flog("Attempt to create file %s\n", filename);
     int fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR ); if(fd == -1) error = "on_save() open()"; else {
     if(writev(fd, iov, 7) == -1) error = "writev()"; else {
@@ -237,10 +235,10 @@ void Window::on_open() {
     remember_folder(filename);
     ask_for_passphrase:
     bool ok; QString passphrase = QInputDialog::getText(this, tr("Passphrase"), tr("Passphrase:"), QLineEdit::Password, "", &ok); if (ok && !passphrase.isEmpty()) {
-      uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; char * path = filename.toLocal8Bit().data(); const char * error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); if(error && fd != -1 && ::close(fd) == -1) error = "close()";
+      uint64_t algo, algo_p1, algo_p2; size_t encrypted_n; int fd; unsigned char salt[crypto_pwhash_SALTBYTES]; unsigned char nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]; char * path = filename.toUtf8().data(); const char * error = decrypt_init(path, &encrypted_n, &fd, &algo, &algo_p1, &algo_p2, salt, nonce); if(error && fd != -1 && ::close(fd) == -1) error = "close()";
       if(!error) {
         unsigned char encrypted[encrypted_n];
-        const char * master_passphrase = passphrase.toLocal8Bit().data();
+        const char * master_passphrase = passphrase.toUtf8().data();
         unsigned char decrypted[encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1]; if(mlock(decrypted, encrypted_n - crypto_aead_xchacha20poly1305_ietf_ABYTES + 1) == -1) error = "mlock()";
         if(!error) {
           size_t decrypted_n = 0; error = decrypt(fd, encrypted, decrypted, &decrypted_n, encrypted_n, algo, algo_p1, algo_p2, salt, nonce, master_passphrase);
