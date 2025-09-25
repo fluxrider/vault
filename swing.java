@@ -11,11 +11,7 @@ import java.awt.event.*;
 
 public class swing {
 
-  static JTextField id;
-  static JTextField url;
-  static JTextField username;
-  static JTextField password;
-  static JTextArea notes;
+  static JTextField id, url, username, password; static JTextArea notes;
   
   static void clipboard(String s) { Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(s), null); }
   
@@ -27,8 +23,7 @@ public class swing {
     JTextArea notes = new JTextArea();
     JFrame frame = new JFrame("Vault"); //frame.setIconImage(UIManager.getIcon("FileView.directoryIcon").getImage());
     frame.setContentPane(new JPanel(new BorderLayout()) {{
-      this.add(new JPanel() {{
-        this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+      this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
           this.add(new JLabel("ID")); this.add(id);
         }});
@@ -45,7 +40,7 @@ public class swing {
           JButton copy = new JButton("Copy", UIManager.getIcon("FileView.floppyDriveIcon")); copy.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { clipboard(password.getText()); }}); this.add(copy);
         }});
         this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-          this.add(notes); this.add(new JTextArea());
+          this.add(new JLabel("Notes")); this.add(notes);
         }});
       }}, BorderLayout.CENTER);
       this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
