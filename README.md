@@ -26,11 +26,14 @@ I tried a few online password services, but found that LastPass 'forgot' some ne
   * QT6
     * I wrote this one because the GTK 4 version is really slow (i.e. multiple seconds) at loading the open file dialog now that I'm running KDE Plasma 6 instead of OpenBox.
     * I'm hoping that this will be my way into an android port.
+  * Java Swing
+    * I got so fed up by GTK and QT unstability, and having to do Windows ports, that I went back in time like it's 2002 and wrote the program in Java.
+    * This implementation is sub par. Just getting back on the Java saddle before writting a prettier one in JavaFX or whatever is cool nowdays.
 
 ## Future works
-* Android version
-* I never centralized the encryption related code so it's duplicated in the various GUIS.
+* I never centralized the encryption related code so it's duplicated in the various GUIS and versions.
   * It would need a lot of work, and it's not thousand of lines so I never bothered.
+* Android version
 
 ## Sorry
 * It's written in fibrofog C, and the Windows ports were hastily done.
