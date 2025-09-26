@@ -8,6 +8,8 @@ import javax.swing.*;
 import java.util.*;
 import java.awt.*;
 import java.awt.event.*;
+import javax.swing.filechooser.*;
+import java.io.*;
 
 public class swing {
 
@@ -15,6 +17,14 @@ public class swing {
   
   static void clipboard(String s) { Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(s), null); }
   
+  static void decode(File file) {
+    System.out.println(file);
+  }
+
+  static void encode() {
+    System.out.println("encode");
+  }
+
   public static void main(String[] args) {
     JTextField id = new JTextField(); JTextField url = new JTextField(); JTextField username = new JTextField(); JTextField password = new JTextField(); JTextArea notes = new JTextArea();
     JFrame frame = new JFrame("Vault"); //frame.setIconImage(UIManager.getIcon("FileView.directoryIcon").getImage());
@@ -26,8 +36,8 @@ public class swing {
         this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS)); this.add(new JLabel("Password")); this.add(password); JButton copy = new JButton("Copy", UIManager.getIcon("FileView.floppyDriveIcon")); copy.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { clipboard(password.getText()); }}); this.add(copy); }}); this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS)); this.add(new JLabel("Notes")); this.add(notes); }});
       }}, BorderLayout.CENTER);
       this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-        this.add(new JButton("Save", UIManager.getIcon("FileView.floppyDriveIcon")));
-        this.add(new JButton("Open", UIManager.getIcon("FileView.directoryIcon")));
+        JButton save = new JButton("Save", UIManager.getIcon("FileView.floppyDriveIcon")); save.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { encode(); } }); this.add(save);
+        JButton open = new JButton("Open", UIManager.getIcon("FileView.directoryIcon")); open.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { JFileChooser chooser = new JFileChooser("/home/flux/_/files/vault/"); FileNameExtensionFilter filter = new FileNameExtensionFilter("Encrypted", "enc"); chooser.setFileFilter(filter); int returnVal = chooser.showOpenDialog(frame); if(returnVal == JFileChooser.APPROVE_OPTION) { decode(chooser.getSelectedFile()); } }}); this.add(open);
       }}, BorderLayout.SOUTH);
     }});
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); frame.pack(); frame.setVisible(true);
