@@ -1,5 +1,7 @@
 // Copyright 2025 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
-// javac swing.java && java -Dsun.java2d.uiScale.enabled=true -Dsun.java2d.uiScale=2 -Djava.awt.headless=false swing
+// find . -name "*.class" -exec rm {} \;
+// javac -Xlint:deprecation -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing.java
+// java -Dsun.java2d.uiScale.enabled=true -Dsun.java2d.uiScale=2 -Djava.awt.headless=false --enable-native-access=ALL-UNNAMED -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing
 //
 // To get list of built-in icons: SortedSet<String> set = new TreeSet<>(); for(Object o : UIManager.getDefaults().keySet()) { set.add(o.toString()); } for(String s : set) { if(s.endsWith("Icon")) System.out.println(s); }
 //
@@ -10,6 +12,7 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.filechooser.*;
 import java.io.*;
+import com.muquit.libsodiumjna.*;
 
 public class swing {
 
@@ -26,6 +29,7 @@ public class swing {
   }
 
   public static void main(String[] args) {
+    SodiumLibrary.setLibraryPath("/usr/lib/libsodium.so"); System.out.println(SodiumLibrary.libsodiumVersionString());
     JTextField id = new JTextField(); JTextField url = new JTextField(); JTextField username = new JTextField(); JTextField password = new JTextField(); JTextArea notes = new JTextArea();
     JFrame frame = new JFrame("Vault"); //frame.setIconImage(UIManager.getIcon("FileView.directoryIcon").getImage());
     frame.setContentPane(new JPanel(new BorderLayout()) {{
