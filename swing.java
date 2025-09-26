@@ -14,6 +14,7 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.filechooser.*;
 import java.io.*;
+import java.nio.charset.*;
 import com.goterl.lazysodium.*;
 import com.goterl.lazysodium.interfaces.*;
 
@@ -46,27 +47,29 @@ public class swing {
 
       // ask for the passphrase and derive key from it
       String vault_passphrase_str = showPasswordDialog("Vault Passphrase"); if(vault_passphrase_str == null) return;
-      byte [] vault_passphrase = vault_passphrase_str.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      byte [] vault_passphrase = vault_passphrase_str.getBytes(StandardCharsets.UTF_8);
       byte [] key = new byte[AEAD.XCHACHA20POLY1305_IETF_KEYBYTES];
       if(sodium.crypto_pwhash(key, AEAD.XCHACHA20POLY1305_IETF_KEYBYTES, vault_passphrase, vault_passphrase.length, salt, algo_p1, new com.sun.jna.NativeLong(algo_p2), (int)algo) != 0) throw new RuntimeException("failed to derive key");
       
       // decrypt
-      byte [] decrypted = new byte[(int)(encrypted_n - AEAD.XCHACHA20POLY1305_IETF_ABYTES + 1)];
+      byte [] decrypted = new byte[(int)(encrypted_n - AEAD.XCHACHA20POLY1305_IETF_ABYTES)];
       long [] decrypted_n_ptr = new long[1];
       if(sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, decrypted_n_ptr, null, encrypted, encrypted_n, null, 0, nonce, key) != 0) throw new RuntimeException("failed to decrypt");
       
-      /*
-          if(!error) {
-            decrypted[decrypted_n] = '\0';
-            // populate entry widgets
-            char * ptr = (char *)decrypted;
-            char * entry = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
-            char * url = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
-            char * username = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
-            char * password = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
-            char * notes = ptr; notes_edit->setPlainText(QString(notes));
-            } password_edit->setText(password); } username_edit->setText(username); } url_edit->setText(url); } name_edit->setText(entry);
-            */
+      // decrypted data is a utf8 \n separated file of id, url, username, password, notes for the rest of file
+      BufferedReader reader = new BufferedReader(new CharArrayReader(new String(decrypted, StandardCharsets.UTF_8).toCharArray()));
+      id.setText(reader.readLine());
+      url.setText(reader.readLine());
+      username.setText(reader.readLine());
+      password.setText(reader.readLine());
+      // read the rest (in a stupid way, I can't used decrypted_n because that's bytes, not utf8 char[])
+      StringBuffer the_rest = new StringBuffer();
+      while(true) {
+        int r = reader.read();
+        if(r == -1) break;
+        the_rest.append((char)r);
+      }
+      notes.setText(the_rest.toString());
       
     } catch(IOException e) { throw new RuntimeException(e); }
   }
@@ -78,7 +81,7 @@ public class swing {
   public static void main(String[] args) {
     //SodiumLibrary.setLibraryPath("/usr/lib/libsodium.so"); System.out.println(SodiumLibrary.libsodiumVersionString());
     sodium = new SodiumJava();
-    JTextField id = new JTextField(); JTextField url = new JTextField(); JTextField username = new JTextField(); JTextField password = new JTextField(); JTextArea notes = new JTextArea();
+    id = new JTextField(); url = new JTextField(); username = new JTextField(); password = new JTextField(); notes = new JTextArea();
     JFrame frame = new JFrame("Vault"); //frame.setIconImage(UIManager.getIcon("FileView.directoryIcon").getImage());
     frame.setContentPane(new JPanel(new BorderLayout()) {{
       this.add(new JPanel() {{ this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
