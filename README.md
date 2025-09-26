@@ -29,8 +29,8 @@ I tried a few online password services, but found that LastPass 'forgot' some ne
   * Java Swing
     * I got so fed up by GTK and QT unstability, and having to do Windows ports, that I went back in time like it's 2002 and wrote the program in Java because it has a GUI library built-in (i.e. Swing).
     * Coding in Java reminded me why I gave up this language (i.e. no unsigned types, obsessed with Big Endian). This makes system programming, using C bindings and simple file handling a nightmare.
-    * Because Swing if old, it's support for DPI and desktop scaling is annoying at best.
-    * This implementation is sub par. I'm just using this as an escuse to get back on the Java saddle before writting a prettier one in JavaFX.
+    * Because Swing is old, its support for DPI and desktop scaling is annoying at best.
+    * This implementation is sub par (e.g. no password field). I'm just using this as an escuse to get back on the Java saddle before writting a prettier one in JavaFX.
 
 ## Future works
 * I never centralized the encryption related code so it's duplicated in the various GUIS and versions.
