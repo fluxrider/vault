@@ -3,7 +3,7 @@
 // java -Dsun.java2d.uiScale.enabled=true -Dsun.java2d.uiScale=2 -Djava.awt.headless=false --enable-native-access=ALL-UNNAMED -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing
 //
 // find . -name "*.class" -exec rm {} \;
-// find . -name "*.java" -exec grep SEARCHITEM {} /dev/null \;
+// find . -name "*.java" -exec grep -i SEARCHITEM {} /dev/null \;
 //
 // To get list of built-in icons: SortedSet<String> set = new TreeSet<>(); for(Object o : UIManager.getDefaults().keySet()) { set.add(o.toString()); } for(String s : set) { if(s.endsWith("Icon")) System.out.println(s); }
 //
@@ -34,16 +34,40 @@ public class swing {
     try {
       // open file and read header
       InputStream in = new FileInputStream(file);
-      DataInputStream din = new DataInputStream(in);
-      long algo = din.readLong();
-      long algo_p1 = din.readLong();
-      long algo_p2 = din.readLong();
+      DataInputStream din = new DataInputStream(in); // keep in mind Java likes, in it's own word, 'machine-independent' byte order, which according to them is Big Endian, the loser of the endian war.
+      long algo = Long.reverseBytes(din.readLong());
+      long algo_p1 = Long.reverseBytes(din.readLong());
+      long algo_p2 = Long.reverseBytes(din.readLong());
       byte [] salt = new byte[PwHash.SALTBYTES]; din.readFully(salt);
       byte [] nonce = new byte[AEAD.XCHACHA20POLY1305_IETF_NPUBBYTES]; din.readFully(nonce);
-      long encrypted_n = din.readLong();
+      long encrypted_n = Long.reverseBytes(din.readLong());
       if(encrypted_n <= AEAD.XCHACHA20POLY1305_IETF_ABYTES) throw new RuntimeException("encrypted length too short");
+      byte [] encrypted = new byte[(int)encrypted_n]; din.readFully(encrypted);
 
-      String vault_passphrase = showPasswordDialog("Vault Passphrase"); if(vault_passphrase == null) return;
+      // ask for the passphrase and derive key from it
+      String vault_passphrase_str = showPasswordDialog("Vault Passphrase"); if(vault_passphrase_str == null) return;
+      byte [] vault_passphrase = vault_passphrase_str.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      byte [] key = new byte[AEAD.XCHACHA20POLY1305_IETF_KEYBYTES];
+      if(sodium.crypto_pwhash(key, AEAD.XCHACHA20POLY1305_IETF_KEYBYTES, vault_passphrase, vault_passphrase.length, salt, algo_p1, new com.sun.jna.NativeLong(algo_p2), (int)algo) != 0) throw new RuntimeException("failed to derive key");
+      
+      // decrypt
+      byte [] decrypted = new byte[(int)(encrypted_n - AEAD.XCHACHA20POLY1305_IETF_ABYTES + 1)];
+      long [] decrypted_n_ptr = new long[1];
+      if(sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, decrypted_n_ptr, null, encrypted, encrypted_n, null, 0, nonce, key) != 0) throw new RuntimeException("failed to decrypt");
+      
+      /*
+          if(!error) {
+            decrypted[decrypted_n] = '\0';
+            // populate entry widgets
+            char * ptr = (char *)decrypted;
+            char * entry = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+            char * url = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+            char * username = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+            char * password = ptr; ptr = strchr(ptr, '\n'); if(ptr) { *ptr++ = '\0';
+            char * notes = ptr; notes_edit->setPlainText(QString(notes));
+            } password_edit->setText(password); } username_edit->setText(username); } url_edit->setText(url); } name_edit->setText(entry);
+            */
+      
     } catch(IOException e) { throw new RuntimeException(e); }
   }
 
