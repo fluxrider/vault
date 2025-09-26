@@ -37,7 +37,7 @@ public class swing {
   
   static void decode(File file) {
     try {
-      byte [] decrypted = decode_(file); if(decrypted == null) return;
+      byte [] decrypted = decode_(file, null); if(decrypted == null) return;
       // decrypted data is a utf8 \n separated file of id, url, username, password, notes for the rest of file
       BufferedReader reader = new BufferedReader(new CharArrayReader(new String(decrypted, StandardCharsets.UTF_8).toCharArray()));
       id.setText(reader.readLine());
@@ -50,7 +50,7 @@ public class swing {
     } catch(IOException e) { throw new RuntimeException(e); }
   }
 
-  static byte [] decode_(File file) throws IOException {
+  static byte [] decode_(File file, String passphrase) throws IOException {
     // open file and read header
     DataInputStream din = new DataInputStream(new FileInputStream(file)); // keep in mind Java likes, in it's own word, 'machine-independent' byte order, which according to them is Big Endian, the loser of the endian war.
     long algo = Long.reverseBytes(din.readLong());
@@ -64,7 +64,7 @@ public class swing {
     din.close();
 
     // ask for the passphrase and derive key from it
-    String vault_passphrase_str = showPasswordDialog("Vault Passphrase"); if(vault_passphrase_str == null) return null;
+    String vault_passphrase_str = passphrase == null? showPasswordDialog("Vault Passphrase") : passphrase; if(vault_passphrase_str == null) return null;
     byte [] vault_passphrase = vault_passphrase_str.getBytes(StandardCharsets.UTF_8);
     byte [] key = new byte[AEAD.XCHACHA20POLY1305_IETF_KEYBYTES];
     if(sodium.crypto_pwhash(key, AEAD.XCHACHA20POLY1305_IETF_KEYBYTES, vault_passphrase, vault_passphrase.length, salt, algo_p1, new com.sun.jna.NativeLong(algo_p2), (int)algo) != 0) throw new RuntimeException("failed to derive key");
@@ -83,13 +83,13 @@ public class swing {
     // open an arbitrary existing file and test passphrase on it, to ensure passphrase used for encoding has no typo that would lock us in
     File[] files = new File(folder).listFiles();
     if(files.length == 0) {
-      JOptionPane.showMessageDialog(null, "Warning", "This is a new folder, so we won't ensure the passphrase has no typos. Please double check the file.", JOptionPane.WARNING_MESSAGE); 
+      JOptionPane.showMessageDialog(null, "This is a new folder, so we won't ensure the passphrase has no typos. Please double check the file.", "Warning", JOptionPane.WARNING_MESSAGE); 
     } else  {
       try {
         File file = files[new Random().nextInt(files.length)];      
-        decode_(file);
+        decode_(file, vault_passphrase_str);
       } catch(Exception e) {
-        JOptionPane.showMessageDialog(null, "Error", "Key didn't work with a random file from vault. Typo likely. Try saving again.", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(null, "Key didn't work with a random file from vault. Typo likely. Try saving again.", "Error", JOptionPane.ERROR_MESSAGE);
         throw new RuntimeException(e);
       }
     }
@@ -121,7 +121,7 @@ public class swing {
     for(int i = 0; i < chars.length; i++) {
       switch(chars[i]) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': chars[i] = '_'; }
     }
-    String filename = folder + new String(chars) + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+    String filename = folder + new String(chars) + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date()) + ".enc";
 
     // write encrypted file
     OutputStream out = new FileOutputStream(filename);
@@ -134,6 +134,7 @@ public class swing {
     dout.writeLong(Long.reverseBytes(encrypted_n));
     dout.write(dst);
     dout.close();
+    System.out.println("File save: " + filename);
 
   } catch(IOException e) { throw new RuntimeException(e); } }
 
