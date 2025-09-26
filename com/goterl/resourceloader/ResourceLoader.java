@@ -17,6 +17,7 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URI;
 import java.nio.channels.FileChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.PosixFilePermission;
@@ -136,7 +137,7 @@ public class ResourceLoader {
         // to extraction.
         if (split.length == 1) {
             //logger.debug("Extracted {} to {}", fullPath, extractTo.getAbsolutePath());
-            return extractFilesOrFoldersFromJar(extractTo, new URL(fullPath), "");
+            return extractFilesOrFoldersFromJar(extractTo, new URI(fullPath).toURL(), "");
         }
 
         String currentExtractionPath = "";
@@ -171,7 +172,7 @@ public class ResourceLoader {
 
             // Now perform the extraction.
             //logger.debug("Extracting {} from {}", nextPart, part);
-            extracted = extractFilesOrFoldersFromJar(nestedExtractTo, new URL(part), nextPart);
+            extracted = extractFilesOrFoldersFromJar(nestedExtractTo, new URI(part).toURL(), nextPart);
             //logger.debug("Extracted: {}", extracted.getAbsolutePath());
 
             // Note down the parent folder's location of the file we extracted to.
@@ -198,7 +199,7 @@ public class ResourceLoader {
                 urlString = split[0] + ".jar";
             }
 
-            try (JarFile jarFile = new JarFile(new File(new URL(urlString).toURI()))) {
+            try (JarFile jarFile = new JarFile(new File(new URI(urlString)))) {
                 // Successfully opened the jar file. Check if there's a manifest
                 // This is probably not necessary
                 Manifest manifest = jarFile.getManifest();
@@ -584,10 +585,7 @@ public class ResourceLoader {
             if (Platform.isWindows() && path.matches("file:[A-Za-z]:.*")) {
                 path = "file:/" + path.substring(5);
             }
-            return new File(new URL(path).toURI());
-        }
-        catch (final MalformedURLException e) {
-            // NB: URL is not completely well-formed.
+            return new File(new URI(path));
         }
         catch (final URISyntaxException e) {
             // NB: URL is not completely well-formed.
@@ -622,8 +620,10 @@ public class ResourceLoader {
         try {
             // This should result in something like
             // file:/C:/app.jar/lazysodium.jar
-            return new URL(url);
+            return new URI(url).toURL();
         } catch (MalformedURLException e) {
+            return null;
+        } catch (URISyntaxException e) {
             return null;
         }
     }
