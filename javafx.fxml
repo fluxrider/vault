@@ -42,7 +42,7 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox alignment="TOP_CENTER" prefHeight="400.0" prefWidth="640.0" spacing="5.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="javafx_controller">
+<VBox alignment="TOP_CENTER" prefHeight="400.0" prefWidth="640.0" spacing="5.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="javafx">
   <children>
       <TextField fx:id="id" promptText="id" />
       <HBox spacing="5.0">
