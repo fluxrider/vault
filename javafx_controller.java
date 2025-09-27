@@ -1,7 +1,12 @@
-import javafx.event.*; import javafx.fxml.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*; import javafx.scene.layout.*; import javafx.geometry.*; import java.util.*;
+import javafx.event.*; import javafx.fxml.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*; import javafx.scene.layout.*; import javafx.geometry.*; import javafx.stage.*; import javafx.stage.FileChooser.*;
+import java.util.*;
+import java.io.*;
 
 public class javafx_controller {
 
+  public Window window;
+  static String folder = "/home/flux/_/files/vault/";
+  
   @FXML private TextField id;
   @FXML private TextField url;
   @FXML private PasswordField username; @FXML private TextField username_viz; @FXML private ImageView username_viz_icon;
@@ -13,34 +18,22 @@ public class javafx_controller {
   @FXML void on_copy_password(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(password.getText()); Clipboard.getSystemClipboard().setContent(content); }
 
   // create a text input dialog
-  static String showPasswordDialog() {
-    Dialog<String> dialog = new Dialog<>();
-    dialog.setTitle("Vault Passphrase");
-    dialog.setHeaderText("Enter the passphrase for the vault.");
-    dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-
-    PasswordField pwd = new PasswordField();
-    HBox content = new HBox();
-    content.setAlignment(Pos.CENTER_LEFT); content.setSpacing(10);
-    content.getChildren().addAll(new Label("Vault Passphrase: "), pwd);
-    dialog.getDialogPane().setContent(content);
-    dialog.setResultConverter(dialogButton -> {
-      if (dialogButton == ButtonType.OK) {
-        return pwd.getText();
-      }
-      return null;
-    });
-
-    Optional<String> result = dialog.showAndWait();
-    if(result.isPresent()) {
-      return result.get();
-    }
-    return null;
+  String showPasswordDialog() {
+    PasswordField pwd = new PasswordField(); HBox content = new HBox(); content.setAlignment(Pos.CENTER); content.getChildren().addAll(pwd); HBox.setHgrow(pwd, Priority.ALWAYS);
+    Dialog<String> dialog = new Dialog<>(); dialog.initOwner(window); dialog.setTitle("Vault Passphrase"); dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL); dialog.getDialogPane().setContent(content);
+    dialog.setResultConverter(dialogButton -> { if (dialogButton == ButtonType.OK) { return pwd.getText(); } return null; });
+    Optional<String> result = dialog.showAndWait(); if(result.isPresent()) { return result.get(); } return null;
   }
-  
-  
+
   @FXML void on_open(ActionEvent event) {
-    System.out.println(showPasswordDialog());
+    FileChooser fileChooser = new FileChooser();
+    fileChooser.setInitialDirectory(new File(folder));
+    fileChooser.setTitle("Open Resource File");
+    fileChooser.getExtensionFilters().addAll(new ExtensionFilter("Encrypted Files", "*.enc"));
+    File file = fileChooser.showOpenDialog(window);
+    if (file != null) {
+      System.out.println(file);
+    }
   }
 
   @FXML void on_save(ActionEvent event) {
