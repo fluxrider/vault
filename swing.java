@@ -1,6 +1,6 @@
 // Copyright 2025 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
-// javac -Xlint:deprecation -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing.java
-// java -Dsun.java2d.uiScale.enabled=true -Dsun.java2d.uiScale=2 -Djava.awt.headless=false --enable-native-access=ALL-UNNAMED -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing
+// javac -Xlint:deprecation -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing.java -d java_out
+// java -Dsun.java2d.uiScale.enabled=true -Dsun.java2d.uiScale=2 -Djava.awt.headless=false --enable-native-access=ALL-UNNAMED -cp java_out:jna-5.18.0.jar:jna-jpms-5.18.0.jar swing
 //
 // find . -name "*.class" -exec rm {} \;
 // find . -name "*.java" -exec grep -i SEARCHITEM {} /dev/null \;

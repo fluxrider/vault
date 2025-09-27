@@ -11,3 +11,4 @@ qt
 *.o
 moc_*
 *.class
+java_out
