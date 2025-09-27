@@ -1,4 +1,4 @@
-import javafx.event.*; import javafx.fxml.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*;
+import javafx.event.*; import javafx.fxml.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*; import javafx.scene.layout.*; import javafx.geometry.*; import java.util.*;
 
 public class javafx_controller {
 
@@ -12,8 +12,35 @@ public class javafx_controller {
   @FXML void on_copy_username(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(username.getText()); Clipboard.getSystemClipboard().setContent(content); }
   @FXML void on_copy_password(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(password.getText()); Clipboard.getSystemClipboard().setContent(content); }
 
+  // create a text input dialog
+  static String showPasswordDialog() {
+    Dialog<String> dialog = new Dialog<>();
+    dialog.setTitle("Vault Passphrase");
+    dialog.setHeaderText("Enter the passphrase for the vault.");
+    dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+    PasswordField pwd = new PasswordField();
+    HBox content = new HBox();
+    content.setAlignment(Pos.CENTER_LEFT); content.setSpacing(10);
+    content.getChildren().addAll(new Label("Vault Passphrase: "), pwd);
+    dialog.getDialogPane().setContent(content);
+    dialog.setResultConverter(dialogButton -> {
+      if (dialogButton == ButtonType.OK) {
+        return pwd.getText();
+      }
+      return null;
+    });
+
+    Optional<String> result = dialog.showAndWait();
+    if(result.isPresent()) {
+      return result.get();
+    }
+    return null;
+  }
+  
+  
   @FXML void on_open(ActionEvent event) {
-    System.out.println("on open");
+    System.out.println(showPasswordDialog());
   }
 
   @FXML void on_save(ActionEvent event) {
