@@ -27,10 +27,16 @@ I tried a few online password services, but found that LastPass 'forgot' some ne
     * I wrote this one because the GTK 4 version is really slow (i.e. multiple seconds) at loading the open file dialog now that I'm running KDE Plasma 6 instead of OpenBox.
     * I'm hoping that this will be my way into an android port.
   * Java Swing
-    * I got so fed up by GTK and QT unstability, and having to do Windows ports, that I went back in time like it's 2002 and wrote the program in Java because it has a GUI library built-in (i.e. Swing).
-    * Coding in Java reminded me why I gave up this language (i.e. no unsigned types, obsessed with Big Endian). This makes system programming, using C bindings and simple file handling a nightmare.
-    * Because Swing is old, its support for DPI and desktop scaling is annoying at best.
-    * This implementation is sub par (e.g. no password field). I'm just using this as an escuse to get back on the Java saddle before writting a prettier one in JavaFX.
+    * Swing
+      * I got so fed up by GTK and QT instability, and having to do Windows ports, that I went back in time like it's 2002 and wrote the program in Java because it has a GUI library built-in (i.e. Swing).
+      * Coding in Java reminded me why I gave up this language (i.e. no unsigned types, obsessed with Big Endian). This makes system programming, using C bindings and simple file handling a nightmare.
+      * By default the Swing UI is too small, so you need a messy command line argument workaround.
+      * This implementation is sub par (e.g. no password field). I'm just using this as an escuse to get back on the Java saddle before writting a prettier one in JavaFX.
+    * JavaFX
+      * I was under the impression that JavaFX was built-in the JRE, but it's not. It means it's one more hurdle.
+      * By default the UI is too small, so you need a messy command line argument workaround that isn't even the same one as for Swing. Not modern enough I guess.
+      * JavaFX fell into the data driven trap with FXML. It's fine for the imaginary generic project, but as soon as you have a specific need it falls short and you need code (e.g. a password field with an all-seeing-eye toggle).
+        * I still decided to give the scene builder a go, but yeah, the show password workaround is a mess. Why don't they improve the controls?
 
 ## Future works
 * I never centralized the encryption related code so it's duplicated in the various GUIS and versions.
