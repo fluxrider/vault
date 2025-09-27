@@ -1,10 +1,16 @@
 import javafx.event.*; import javafx.fxml.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*; import javafx.scene.layout.*; import javafx.geometry.*; import javafx.stage.*; import javafx.stage.FileChooser.*;
 import java.util.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import com.goterl.lazysodium.*;
+import com.goterl.lazysodium.interfaces.*;
+import java.util.Random;
+import java.text.SimpleDateFormat;
 
 public class javafx_controller {
 
   public Window window;
+  public SodiumJava sodium;
   static String folder = "/home/flux/_/files/vault/";
   
   @FXML private TextField id;
@@ -17,6 +23,109 @@ public class javafx_controller {
   @FXML void on_copy_username(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(username.getText()); Clipboard.getSystemClipboard().setContent(content); }
   @FXML void on_copy_password(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(password.getText()); Clipboard.getSystemClipboard().setContent(content); }
 
+  void decode(File file) {
+    try {
+      byte [] decrypted = decode_(file, null); if(decrypted == null) return;
+      // decrypted data is a utf8 \n separated file of id, url, username, password, notes for the rest of file
+      BufferedReader reader = new BufferedReader(new CharArrayReader(new String(decrypted, StandardCharsets.UTF_8).toCharArray()));
+      id.setText(reader.readLine());
+      url.setText(reader.readLine());
+      username.setText(reader.readLine());
+      password.setText(reader.readLine());
+      // read the rest (in a stupid way, I can't used decrypted_n because that's bytes, not utf8 char[])
+      StringBuffer the_rest = new StringBuffer(); while(true) { int r = reader.read(); if(r == -1) break; the_rest.append((char)r); }
+      notes.setText(the_rest.toString());
+    } catch(IOException e) { throw new RuntimeException(e); }
+  }
+
+  byte [] decode_(File file, String passphrase) throws IOException {
+    // open file and read header
+    DataInputStream din = new DataInputStream(new FileInputStream(file)); // keep in mind Java likes, in it's own word, 'machine-independent' byte order, which according to them is Big Endian, the loser of the endian war.
+    long algo = Long.reverseBytes(din.readLong());
+    long algo_p1 = Long.reverseBytes(din.readLong());
+    long algo_p2 = Long.reverseBytes(din.readLong());
+    byte [] salt = new byte[PwHash.SALTBYTES]; din.readFully(salt);
+    byte [] nonce = new byte[AEAD.XCHACHA20POLY1305_IETF_NPUBBYTES]; din.readFully(nonce);
+    long encrypted_n = Long.reverseBytes(din.readLong());
+    if(encrypted_n <= AEAD.XCHACHA20POLY1305_IETF_ABYTES) throw new RuntimeException("encrypted length too short");
+    byte [] encrypted = new byte[(int)encrypted_n]; din.readFully(encrypted);
+    din.close();
+
+    // ask for the passphrase and derive key from it
+    String vault_passphrase_str = passphrase == null? showPasswordDialog() : passphrase; if(vault_passphrase_str == null) return null;
+    byte [] vault_passphrase = vault_passphrase_str.getBytes(StandardCharsets.UTF_8);
+    byte [] key = new byte[AEAD.XCHACHA20POLY1305_IETF_KEYBYTES];
+    if(sodium.crypto_pwhash(key, AEAD.XCHACHA20POLY1305_IETF_KEYBYTES, vault_passphrase, vault_passphrase.length, salt, algo_p1, new com.sun.jna.NativeLong(algo_p2), (int)algo) != 0) throw new RuntimeException("failed to derive key");
+
+    // decrypt
+    byte [] decrypted = new byte[(int)(encrypted_n - AEAD.XCHACHA20POLY1305_IETF_ABYTES)];
+    long [] decrypted_n_ptr = new long[1];
+    if(sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, decrypted_n_ptr, null, encrypted, encrypted_n, null, 0, nonce, key) != 0) throw new RuntimeException("failed to decrypt");
+    
+    return decrypted;
+  }
+
+  void encode() { try {
+    String vault_passphrase_str = showPasswordDialog(); if(vault_passphrase_str == null) return;
+    
+    // open an arbitrary existing file and test passphrase on it, to ensure passphrase used for encoding has no typo that would lock us in
+    File[] files = new File(folder).listFiles();
+    if(files.length == 0) {
+      Alert alert = new Alert(Alert.AlertType.WARNING); alert.setTitle("Warning"); alert.setContentText("This is a new folder, so we won't ensure the passphrase has no typos. Please double check the file."); alert.show();
+    } else  {
+      try {
+        File file = files[new Random().nextInt(files.length)];      
+        decode_(file, vault_passphrase_str);
+      } catch(Exception e) {
+        Alert alert = new Alert(Alert.AlertType.ERROR); alert.setTitle("Error"); alert.setContentText("Key didn't work with a random file from vault. Typo likely. Try saving again."); alert.show();
+        throw new RuntimeException(e);
+      }
+    }
+
+    // derive key
+    long algo = PwHash.Alg.PWHASH_ALG_ARGON2ID13.getValue();
+    long algo_p1 = PwHash.ARGON2ID_OPSLIMIT_MODERATE;
+    long algo_p2 = PwHash.ARGON2ID_MEMLIMIT_MODERATE;
+    byte [] salt = new byte[PwHash.SALTBYTES]; sodium.randombytes_buf(salt, salt.length);
+    byte [] vault_passphrase = vault_passphrase_str.getBytes(StandardCharsets.UTF_8);
+    byte [] key = new byte[AEAD.XCHACHA20POLY1305_IETF_KEYBYTES];
+    if(sodium.crypto_pwhash(key, AEAD.XCHACHA20POLY1305_IETF_KEYBYTES, vault_passphrase, vault_passphrase.length, salt, algo_p1, new com.sun.jna.NativeLong(algo_p2), (int)algo) != 0) throw new RuntimeException("failed to derive key");
+    
+    // encrypt
+    StringBuilder s = new StringBuilder();
+    s.append(id.getText()); s.append('\n');
+    s.append(url.getText()); s.append('\n');
+    s.append(username.getText()); s.append('\n');
+    s.append(password.getText()); s.append('\n');
+    s.append(notes.getText());
+    byte [] src = s.toString().getBytes(StandardCharsets.UTF_8);
+    byte [] nonce = new byte[AEAD.XCHACHA20POLY1305_IETF_NPUBBYTES]; sodium.randombytes_buf(nonce, nonce.length);
+    byte [] dst = new byte[src.length+AEAD.XCHACHA20POLY1305_IETF_ABYTES];
+    long [] dst_n_ptr = new long[1];
+    if(sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(dst, dst_n_ptr, src, src.length, null, 0, null, nonce, key) != 0) throw new RuntimeException("failed to encrypt"); long encrypted_n = dst_n_ptr[0];
+
+    // sanitize entry for filename purpose, and add timestamp
+    char [] chars = id.getText().toCharArray();
+    for(int i = 0; i < chars.length; i++) {
+      switch(chars[i]) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': chars[i] = '_'; }
+    }
+    String filename = folder + new String(chars) + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date()) + ".enc";
+
+    // write encrypted file
+    OutputStream out = new FileOutputStream(filename);
+    DataOutputStream dout = new DataOutputStream(out); // keep in mind Java likes, in it's own word, 'machine-independent' byte order, which according to them is Big Endian, the loser of the endian war.
+    dout.writeLong(Long.reverseBytes(algo));
+    dout.writeLong(Long.reverseBytes(algo_p1));
+    dout.writeLong(Long.reverseBytes(algo_p2));
+    dout.write(salt);
+    dout.write(nonce);
+    dout.writeLong(Long.reverseBytes(encrypted_n));
+    dout.write(dst);
+    dout.close();
+    System.out.println("File save: " + filename);
+
+  } catch(IOException e) { throw new RuntimeException(e); } }
+
   // create a text input dialog
   String showPasswordDialog() {
     PasswordField pwd = new PasswordField(); HBox content = new HBox(); content.setAlignment(Pos.CENTER); content.getChildren().addAll(pwd); HBox.setHgrow(pwd, Priority.ALWAYS);
@@ -26,13 +135,9 @@ public class javafx_controller {
   }
 
   @FXML void on_open(ActionEvent event) {
-    FileChooser fileChooser = new FileChooser();
-    fileChooser.setInitialDirectory(new File(folder));
-    fileChooser.setTitle("Open Resource File");
-    fileChooser.getExtensionFilters().addAll(new ExtensionFilter("Encrypted Files", "*.enc"));
-    File file = fileChooser.showOpenDialog(window);
-    if (file != null) {
-      System.out.println(file);
+    FileChooser chooser = new FileChooser(); chooser.setInitialDirectory(new File(folder)); chooser.setTitle("Open Resource File"); chooser.getExtensionFilters().addAll(new ExtensionFilter("Encrypted Files", "*.enc"));
+    File file = chooser.showOpenDialog(window); if (file != null) {
+      decode(file);
     }
   }
 
