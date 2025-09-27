@@ -7,6 +7,7 @@ import javafx.application.Application;
 import javafx.stage.*;
 import javafx.scene.*;
 import javafx.scene.control.*;
+import javafx.scene.image.*;
 import javafx.fxml.*;
 import java.io.*;
 
@@ -20,9 +21,14 @@ public class javafx extends Application { public static void main(String[] args)
     stage.setScene(scene);
     stage.show();
     */
+    Image hide_icon = new Image("file:password-hide.png");
+    Image show_icon = new Image("file:password-show.png");
     
     FXMLLoader loader = new FXMLLoader(new File("javafx.fxml").toURI().toURL());
     Parent root = loader.load();
+    javafx_controller controller = loader.<javafx_controller>getController();
+    controller.set_icons(hide_icon, show_icon);
+    
     Scene scene = new Scene(root);
     stage.setTitle("Vault");
     stage.setScene(scene);
