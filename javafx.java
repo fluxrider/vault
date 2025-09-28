@@ -4,7 +4,7 @@
 // note: openjfx was a pain to install. I ended up installing snapd from AUR, then sudo systemctl start snapd, then sudo snap install openjfx
 // note: I merged my Application and my fxml controller class together. It's not kosher but since the default constructor of Application is empty it's benign. Just keep in mind that start() and the rest are different instances.
 
-import javafx.application.Application; import javafx.fxml.*; import javafx.stage.*;
+import javafx.application.*; import javafx.fxml.*; import javafx.stage.*;
 import javafx.scene.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*; import javafx.scene.layout.*; import javafx.event.*;
 import javafx.geometry.*; import javafx.stage.FileChooser.*;
 
@@ -149,6 +149,7 @@ public class javafx extends Application { public static void main(String[] args)
     PasswordField pwd = new PasswordField(); HBox content = new HBox(); content.setAlignment(Pos.CENTER); content.getChildren().addAll(pwd); HBox.setHgrow(pwd, Priority.ALWAYS);
     Dialog<String> dialog = new Dialog<>(); dialog.initOwner(window); dialog.setTitle("Vault Passphrase"); dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL); dialog.getDialogPane().setContent(content);
     dialog.setResultConverter(dialogButton -> { if (dialogButton == ButtonType.OK) { return pwd.getText(); } return null; });
+    Platform.runLater(()->pwd.requestFocus()); // dialog.setOnDialogOpened((event) -> { pwd.requestFocus(); }); // seems to be an example for another widget called JFXDialog // dialog.setOnShown((event) -> { pwd.requestFocus(); }); // doesn't work
     Optional<String> result = dialog.showAndWait(); if(result.isPresent()) { return result.get(); } return null;
   }
 
