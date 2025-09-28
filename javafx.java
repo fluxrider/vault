@@ -1,7 +1,8 @@
 // Copyright 2025 David Lareau. This source code form is subject to the terms of the Mozilla Public License 2.0.
 // javac --module-path /var/lib/snapd/snap/openjfx/current/sdk/lib --add-modules javafx.controls,javafx.fxml -cp .:jna-5.18.0.jar:jna-jpms-5.18.0.jar javafx.java -d java_out
-// java --module-path /var/lib/snapd/snap/openjfx/current/sdk/lib --add-modules javafx.controls,javafx.fxml --enable-native-access=javafx.graphics -Dglass.gtk.uiScale=1.5 -cp java_out:jna-5.18.0.jar:jna-jpms-5.18.0.jar javafx
+// java --module-path /var/lib/snapd/snap/openjfx/current/sdk/lib --add-modules javafx.controls,javafx.fxml --enable-native-access=javafx.graphics --enable-native-access=ALL-UNNAMED -Dglass.gtk.uiScale=1.5 -cp java_out:jna-5.18.0.jar:jna-jpms-5.18.0.jar javafx
 // note: openjfx was a pain to install. I ended up installing snapd from AUR, then sudo systemctl start snapd, then sudo snap install openjfx
+// note: I merged my Application and my fxml controller class together. It's not kosher but since the default constructor of Application is empty it's benign. Just keep in mind that start() and the rest are different instances.
 
 import javafx.application.Application; import javafx.fxml.*; import javafx.stage.*;
 import javafx.scene.*; import javafx.scene.control.*; import javafx.scene.image.*; import javafx.scene.input.*; import javafx.scene.layout.*; import javafx.event.*;
@@ -42,8 +43,7 @@ public class javafx extends Application { public static void main(String[] args)
   @FXML void on_copy_username(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(username.getText()); Clipboard.getSystemClipboard().setContent(content); }
   @FXML void on_copy_password(ActionEvent event) { ClipboardContent content = new ClipboardContent(); content.putString(password.getText()); Clipboard.getSystemClipboard().setContent(content); }
 
-  void decode(File file) {
-    try {
+  void decode(File file) { try {
       byte [] decrypted = decode_(file, null); if(decrypted == null) return;
       // decrypted data is a utf8 \n separated file of id, url, username, password, notes for the rest of file
       BufferedReader reader = new BufferedReader(new CharArrayReader(new String(decrypted, StandardCharsets.UTF_8).toCharArray()));
@@ -54,8 +54,7 @@ public class javafx extends Application { public static void main(String[] args)
       // read the rest (in a stupid way, I can't used decrypted_n because that's bytes, not utf8 char[])
       StringBuffer the_rest = new StringBuffer(); while(true) { int r = reader.read(); if(r == -1) break; the_rest.append((char)r); }
       notes.setText(the_rest.toString());
-    } catch(IOException e) { throw new RuntimeException(e); }
-  }
+  } catch(Exception e) { show_error(e.toString()); throw new RuntimeException(e); } }
 
   byte [] decode_(File file, String passphrase) throws IOException {
     // open file and read header
@@ -90,13 +89,13 @@ public class javafx extends Application { public static void main(String[] args)
     // open an arbitrary existing file and test passphrase on it, to ensure passphrase used for encoding has no typo that would lock us in
     File[] files = new File(folder).listFiles();
     if(files.length == 0) {
-      Alert alert = new Alert(Alert.AlertType.WARNING); alert.setTitle("Warning"); alert.setContentText("This is a new folder, so we won't ensure the passphrase has no typos. Please double check the file."); alert.show();
+      show_warning("This is a new folder, so we won't ensure the passphrase has no typos. Please double check the file.");
     } else  {
       try {
         File file = files[new Random().nextInt(files.length)];      
         decode_(file, vault_passphrase_str);
       } catch(Exception e) {
-        Alert alert = new Alert(Alert.AlertType.ERROR); alert.setTitle("Error"); alert.setContentText("Key didn't work with a random file from vault. Typo likely. Try saving again."); alert.show();
+        show_error("Key didn't work with a random file from vault. Typo likely. Try saving again.");
         throw new RuntimeException(e);
       }
     }
@@ -128,7 +127,7 @@ public class javafx extends Application { public static void main(String[] args)
     for(int i = 0; i < chars.length; i++) {
       switch(chars[i]) { case '/': case '\\': case '?': case '%': case '*': case ':': case '|': case '"': case '<': case '>': case '.': case ',': case ';': case '=': case ' ': case '+': case '[': case ']': case '(': case ')': case '!': case '@': case '$':case '#': case '-': chars[i] = '_'; }
     }
-    String filename = folder + new String(chars) + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date()) + ".enc";
+    String filename = folder + new String(chars) + '.' + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date()) + ".enc";
 
     // write encrypted file
     OutputStream out = new FileOutputStream(filename);
@@ -143,7 +142,7 @@ public class javafx extends Application { public static void main(String[] args)
     dout.close();
     System.out.println("File save: " + filename);
 
-  } catch(IOException e) { throw new RuntimeException(e); } }
+  } catch(Exception e) { show_error(e.toString()); throw new RuntimeException(e); } }
 
   // create a text input dialog
   String showPasswordDialog() {
@@ -161,6 +160,7 @@ public class javafx extends Application { public static void main(String[] args)
   }
 
   @FXML void on_save(ActionEvent event) {
+    encode();
   }
 
   private Image hide_icon, show_icon;
